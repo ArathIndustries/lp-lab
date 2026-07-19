@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LP Lab — linear programming toolkit</title>
+<meta name="description" content="Interactive simplex &amp; Big-M workbench, guided trainer, cheat sheets, and exact-arithmetic console solvers for linear programming.">
+<style>
+:root{
+  --bg:#faf9f6;--card:#ffffff;--ink:#1c1c1a;--ink-soft:#6b6a64;--line:#e3e1da;
+  --accent:#8a4b12;--accent-soft:rgba(138,75,18,.09);
+  --mono:"Cascadia Code","JetBrains Mono",Consolas,monospace;
+  --serif:Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#161514;--card:#1e1d1b;--ink:#e8e6e1;--ink-soft:#98968e;--line:#33312d;
+        --accent:#e0a25e;--accent-soft:rgba(224,162,94,.10)}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--serif)}
+.wrap{max-width:880px;margin:0 auto;padding:48px 20px 32px}
+.mark{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:34px;margin:10px 0 6px;line-height:1.15}
+p.sub{color:var(--ink-soft);max-width:640px;margin:0 0 34px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+a.card{display:block;background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:18px 18px 16px;text-decoration:none;color:inherit;transition:border-color .15s}
+a.card:hover{border-color:var(--accent)}
+a.card h2{font-size:18px;margin:0 0 6px}
+a.card h2 .n{font-family:var(--mono);font-size:12px;color:var(--accent);margin-right:8px}
+a.card p{margin:0;font-size:14px;color:var(--ink-soft)}
+.solvers{margin-top:34px;border-top:1px solid var(--line);padding-top:22px}
+.solvers h3{font-size:15px;margin:0 0 8px;font-family:var(--mono);letter-spacing:.06em;
+  text-transform:uppercase;color:var(--accent);font-weight:600}
+.solvers p{font-size:14.5px;color:var(--ink-soft);max-width:640px;margin:0 0 8px}
+code{font-family:var(--mono);font-size:13px;background:var(--accent-soft);border-radius:4px;padding:1px 5px}
+a.plain{color:var(--accent)}
+footer{margin-top:48px;border-top:1px solid var(--line);padding-top:16px;
+  font-family:var(--mono);font-size:12px;color:var(--ink-soft);letter-spacing:.04em}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <span class="mark">Operations Research · Linear Programming</span>
+  <h1>LP Lab</h1>
+  <p class="sub">An interactive workbench, guided trainer, and printable references for
+  linear programming — formulation, the graphical method, simplex, and Big-M.
+  Every tableau is computed in exact fractions with a symbolic M, so what you
+  see on screen is what you would write by hand. All pages run fully offline.</p>
+</header>
+
+<div class="grid">
+  <a class="card" href="lab.html">
+    <h2><span class="n">01</span>Lab</h2>
+    <p>Interactive workbench: step-through simplex and Big-M tableaus, SVG
+    graphical view, and a "Your problem" builder that solves typed coefficients.</p>
+  </a>
+  <a class="card" href="trainer.html">
+    <h2><span class="n">02</span>Trainer</h2>
+    <p>Guided walkthroughs from raw problem to optimal tableau, plus a generator
+    for fresh problems with a chosen outcome (unbounded, degenerate, infeasible…).</p>
+  </a>
+  <a class="card" href="cheatsheet.html">
+    <h2><span class="n">03</span>Cheat Sheet</h2>
+    <p>One printable side: formulation, graphical, simplex, and Big-M in
+    Winston Row-0 form.</p>
+  </a>
+  <a class="card" href="cheatsheet_algo.html">
+    <h2><span class="n">04</span>Algorithmic Cheat Sheet</h2>
+    <p>The same material organized as a single procedure with explicit
+    decision points.</p>
+  </a>
+</div>
+
+<div class="solvers">
+  <h3>Console solvers</h3>
+  <p>Two Python programs mirror the browser engine:
+  <a class="plain" href="https://github.com/ArathIndustries/lp-lab/tree/main/solvers/simplex">solvers/simplex</a>
+  (step-by-step Big-M simplex, standard library only, exact
+  <code>Fraction</code> arithmetic, optional scipy cross-check) and
+  <a class="plain" href="https://github.com/ArathIndustries/lp-lab/tree/main/solvers/graphical">solvers/graphical</a>
+  (2-variable graphical method with a plotted solution and an animated
+  constraint build-up). Source and usage:
+  <a class="plain" href="https://github.com/ArathIndustries/lp-lab">github.com/ArathIndustries/lp-lab</a>.</p>
+</div>
+
+<footer>A Forged Tool · © Arath Industries</footer>
+</div>
+</body>
+</html>

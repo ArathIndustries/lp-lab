@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LP — Algorithmic Cheat Sheet (1 side)</title>
+<style>
+  @page{ size:letter; margin:0.3in; }
+  html,body{ margin:0; padding:0; background:#fff; color:#111; }
+  body{ font:11pt/1.3 "Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .sheet{ zoom:0.62; width:13.2in; padding:0.1in; column-count:2; column-gap:0.35in; }
+  h1{ column-span:all; text-align:center; font-size:15pt; margin:0 0 2px; }
+  h1 small{ font-weight:400; font-size:10pt; color:#333; display:block; margin-top:2px; }
+  .map{ column-span:all; text-align:center; font-size:10.5pt; background:#f0f0f0;
+        border:1px solid #bbb; border-radius:4px; padding:4px 8px; margin:0 0 8px; }
+  .map b{ color:#000; }
+  h2{ font-size:12.5pt; margin:10px 0 3px; padding:2px 7px; background:#222; color:#fff;
+      border-radius:3px; break-after:avoid; }
+  h2 .n{ opacity:.7; font-weight:400; }
+  pre.algo{ font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+      font-size:10pt; line-height:1.32; background:#f7f7f6; border:1px solid #d5d5d3;
+      border-left:3px solid #3366cc; border-radius:4px; padding:7px 10px; margin:4px 0 8px;
+      white-space:pre; overflow-x:auto; break-inside:avoid; }
+  pre.algo .kw{ font-weight:700; color:#a11; }            /* IF / ELSE / REPEAT / STOP */
+  pre.algo .st{ font-weight:700; color:#036; }            /* stage labels */
+  pre.algo .cm{ color:#777; font-style:italic; }          /* comments */
+  .defs{ font-size:10pt; line-height:1.4; }
+  .defs b{ color:#036; }
+  .defs .row{ margin:2px 0; padding-left:12px; text-indent:-12px; }
+  .warn{ background:#fff0f0; border-left:3px solid #c33; border-radius:3px;
+         padding:4px 8px; font-size:9.6pt; margin:4px 0; }
+  .tblwrap{ break-inside:avoid; margin:6px 0 8px; }
+  .tcap{ font-size:9.6pt; font-weight:700; color:#036; margin-bottom:3px; }
+  table.tbl{ border-collapse:collapse; font-size:9.5pt;
+             font-family:Consolas,"Liberation Mono",monospace; margin:2px 0; }
+  table.tbl th, table.tbl td{ border:1px solid #999; padding:2px 7px; text-align:center; }
+  table.tbl th{ background:#e2e2e2; }
+  table.tbl tr.r0 td{ background:#eef2ff; }
+  table.tbl .he, table.tbl th.he{ background:#ffe1e1; font-weight:700; }
+  table.tbl .hl, table.tbl th.hl{ background:#fff3d0; }
+  table.tbl .ha, table.tbl td.ha, table.tbl th.ha{ background:#ece1ff; font-weight:700; }
+  table.ftbl{ border-collapse:collapse; width:100%; font-size:8.8pt; line-height:1.26;
+              margin:4px 0; break-inside:avoid; }
+  table.ftbl th, table.ftbl td{ border:1px solid #aaa; padding:2px 5px; text-align:left; vertical-align:top; }
+  table.ftbl th{ background:#e2e2e2; font-size:8.4pt; }
+  table.ftbl td.ty{ font-weight:700; background:#f4f4f4; }
+  .tnote{ font-size:9.5pt; line-height:1.42; margin-top:4px; }
+  .tnote .num{ font-weight:700; color:#a11; }
+  @media print{
+    pre.algo{ background:#f4f4f4; border-color:#888; }
+    h2{ color:#fff; }
+    .map{ background:#eee; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+<h1>LP, as one procedure
+  <small>Formulation · Graphical · Simplex · Big-M — Winston Row-0 form. Read the boxes as a walk-through.</small></h1>
+
+<div class="map"><b>FORMULATE</b> → <b>CHOOSE SOLVER</b> → &nbsp; GRAPHICAL &nbsp; <b>or</b> &nbsp; standard form → [Big-M setup if any ≥ or =] → <b>SIMPLEX LOOP</b> &nbsp; → <b>READ ANSWER</b></div>
+
+<h2><span class="n">STEP 1 ·</span> FORMULATE the model</h2>
+<pre class="algo"><span class="cm">// setup depends on the problem type</span>
+1. VARIABLES  define what you choose, precisely:
+              x&#8341; = number of ___ per (unit &amp; period)
+2. OBJECTIVE  Max z (profit)  or  Min z / w (cost)
+              z = c&#8321;x&#8321; + c&#8322;x&#8322; + ... + c&#8345;x&#8345;
+3. CONSTRAINTS  one per limit; sense by wording:
+       "at most / available / capacity"  → ≤
+       "at least / minimum / required"    → ≥
+       "exactly / must equal"             → =
+4. SIGNS      x&#8341; ≥ 0   (no negative amounts)</pre>
+<div class="tcap" style="margin-top:6px">Step 1 always makes 3 things — variables, objective, constraints. Fill them in by problem type:</div>
+<table class="ftbl">
+  <tr><th>Type</th><th>① Variables</th><th>② Objective</th><th>③ Constraints (the shape)</th></tr>
+  <tr><td class="ty">Product-mix<br>(MAX)</td>
+      <td>xᵢ = units of product i to make</td>
+      <td>Max Σ (profit per unit)·xᵢ</td>
+      <td><b>one ≤ per shared resource:</b> Σ(amount used per unit)·xᵢ ≤ amount available. Optional demand cap xᵢ ≤ Dᵢ.</td></tr>
+  <tr><td class="ty">Diet / blend<br>(MIN)</td>
+      <td>xᵢ = amount of ingredient i used</td>
+      <td>Min Σ (cost per unit)·xᵢ</td>
+      <td><b>one ≥ per requirement:</b> Σ(nutrient per unit)·xᵢ ≥ minimum needed.</td></tr>
+  <tr><td class="ty">Scheduling<br>(MIN)</td>
+      <td>xᵢ = number of workers who <b>start</b> on day i</td>
+      <td>Min Σ xᵢ (total workers)</td>
+      <td><b>one ≥ per day:</b> (day i's starter + the 4 previous days' starters) ≥ staff needed that day. <b>Week is cyclic</b> — "previous days" wrap around (Monday's 4 previous days are Thu, Fri, Sat, Sun).</td></tr>
+  <tr><td class="ty">Multi-period<br>(MIN)</td>
+      <td>per period t: xₜ made, yₜ overtime, iₜ inventory (dₜ = demand)</td>
+      <td>Min Σ (make + overtime + holding cost)</td>
+      <td><b>one = balance per period:</b> iₜ = iₜ₋₁ + xₜ + yₜ − dₜ (end = start + made − shipped); iₜ ≥ 0; give i₀. <b>Also cap regular production</b> each period: xₜ ≤ capacity (overtime yₜ usually uncapped).</td></tr>
+</table>
+<div class="defs"><div class="row"><b>Every type also:</b> add the sign restrictions xᵢ ≥ 0. Then go to Step 2 to pick the solver.</div></div>
+
+<h2><span class="n">STEP 2 ·</span> CHOOSE the solver</h2>
+<pre class="algo"><span class="cm">// pure decision — read the finished model</span>
+<span class="kw">IF</span> the model has exactly 2 decision variables:
+     → <span class="st">GRAPHICAL</span>  (Step 3)
+<span class="kw">ELSE</span>:
+     put every constraint into standard form:
+         ≤   add slack     (+s)
+         ≥   subtract surplus (−e)  AND add artificial (+a)
+         =   add artificial (+a)
+     <span class="kw">IF</span> any constraint was ≥ or =  (you added an artificial):
+          → <span class="st">BIG-M</span>   (Step 4 setup, then Step 5)
+     <span class="kw">ELSE</span> (every constraint was ≤):
+          → <span class="st">SIMPLEX</span> (straight to Step 5)</pre>
+
+<h2><span class="n">STEP 3 ·</span> GRAPHICAL solve <span class="n">(2 variables only)</span></h2>
+<pre class="algo">1. each constraint → a line (plot its two intercepts)
+2. shade its feasible side: test the point (0,0)
+      TRUE  → keep the origin side
+      FALSE → keep the far side
+   feasible region = overlap of all shaded sides (+ x ≥ 0)
+3. list every corner:
+      axis corners  +  line∩line (solve the 2×2 by elimination)
+      keep only corners that satisfy ALL constraints
+4. compute z at every corner
+      max → largest z      min → smallest z
+
+<span class="kw">STOP</span> → answer = that corner's (x&#8321;,x&#8322;) and its z
+   <span class="kw">IF</span> two corners tie for best   → ALTERNATIVE OPTIMA (whole edge)
+   <span class="kw">IF</span> the region is empty       → INFEASIBLE (no solution)
+   <span class="kw">IF</span> region open the improving way → UNBOUNDED (max only)</pre>
+
+<h2><span class="n">STEP 4 ·</span> BIG-M setup <span class="n">(only if Step 2 sent you here)</span></h2>
+<pre class="algo"><span class="cm">// a prefix that gives the loop a starting basis</span>
+1. any RHS &lt; 0 ?  multiply that row by −1 (flips its inequality)
+2. (standard form already added  s / −e / a  in Step 2)
+3. penalize the artificials in the objective:
+       MIN:  z = (original) + M·a&#8321; + M·a&#8322; + ...
+       MAX:  Z = (original) − M·a&#8321; − M·a&#8322; − ...
+4. clear artificials out of Row 0 (they start basic):
+       New Row 0 = Row 0 + M·(each artificial's row)   <span class="cm">[− for max]</span>
+   Row 0 now carries symbolic M coefficients
+→ go to Step 5</pre>
+
+<h2><span class="n">STEP 5 ·</span> THE SIMPLEX LOOP <span class="n">(Simplex &amp; Big-M share this)</span></h2>
+<pre class="algo"><span class="cm">// Row 0:  z − c&#8321;x&#8321; − c&#8322;x&#8322; − ... = 0</span>
+<span class="cm">// start: decision vars = 0, slacks = RHS, z = 0</span>
+
+<span class="kw">REPEAT</span>:
+   ── optimality test ──
+   MAX: every Row-0 coeff ≥ 0 ?   ┐ yes → <span class="kw">STOP</span> (optimal)
+   MIN: every Row-0 coeff ≤ 0 ?   ┘ no  → keep going
+
+   ── entering variable (nonbasic → basic) ──
+   MAX: the MOST NEGATIVE Row-0 coefficient
+   MIN: the MOST POSITIVE Row-0 coefficient
+   <span class="kw">IF</span> that column has no positive entry → <span class="kw">STOP</span>: UNBOUNDED
+
+   ── leaving variable (basic → nonbasic): ratio test ──
+   each row with a positive entry: ratio = RHS ÷ entry
+   smallest ratio → that row leaves
+   pivot element = entering column ∩ leaving row
+
+   ── pivot ──
+   divide the pivot row by the pivot element (→ 1)
+   clear that column in EVERY other row, including Row 0:
+       new row = old row − (its entry in that column)×(new pivot row)
+
+<span class="kw">GO BACK TO REPEAT</span>
+
+<span class="kw">STOP</span> → READ THE ANSWER:
+   basic variable = its RHS   ·   nonbasic variable = 0   ·   z = Row 0's RHS
+   slack sᵢ = 0 → constraint binding   ·   sᵢ &gt; 0 → that much unused
+   <span class="kw">IF</span> Big-M and any artificial &gt; 0 → INFEASIBLE (LP has no solution)</pre>
+
+<div class="tblwrap">
+<div class="tcap">The loop, mapped onto a tableau (generic layout — no data)</div>
+<table class="tbl">
+  <tr><th>BV</th><th>z</th><th class="he">x&#8321;</th><th>x&#8322;</th><th>s&#8321;</th><th>s&#8322;</th><th>RHS</th><th class="hl">Ratio</th></tr>
+  <tr class="r0"><td>z</td><td>1</td><td class="he">d&#8321;</td><td>d&#8322;</td><td>0</td><td>0</td><td><b>z</b></td><td>—</td></tr>
+  <tr><td>s&#8321;</td><td>0</td><td class="he">•</td><td>•</td><td>1</td><td>0</td><td>b&#8321;</td><td class="hl">b&#8321; ÷ •</td></tr>
+  <tr><td>s&#8322;</td><td>0</td><td class="he">•</td><td>•</td><td>0</td><td>1</td><td>b&#8322;</td><td class="hl">b&#8322; ÷ •</td></tr>
+</table>
+<div class="tnote">
+dⱼ = Row-0 coefficient of a variable · • = any number · <span class="he">&nbsp;pink&nbsp;</span> = the entering column · <span class="hl">&nbsp;yellow&nbsp;</span> = the ratio test.<br>
+<span class="num">①</span> <b>Optimality</b> — scan Row 0's variable coeffs dⱼ. Max: all ≥ 0 → STOP · Min: all ≤ 0 → STOP.<br>
+<span class="num">②</span> <b>Enter</b> — the column whose dⱼ is most negative (max) / most positive (min) → the pink column.<br>
+<span class="num">③</span> <b>Ratio test</b> — down that column: RHS ÷ each <i>positive</i> entry; the <b>smallest</b> ratio picks the leaving row.<br>
+<span class="num">④</span> <b>Pivot</b> — the cell where the pink column meets the leaving row: make it 1, then clear the rest of that column, <b>including Row 0</b>.<br>
+<span class="num">⑤</span> <b>Read</b> — each basic variable (left column) = its RHS; z = Row 0's RHS.
+</div>
+</div>
+
+<div class="tblwrap">
+<div class="tcap">Big-M tableau — same loop, extra columns + symbolic M (generic layout)</div>
+<table class="tbl">
+  <tr><th>BV</th><th>z</th><th>x&#8321;</th><th>x&#8322;</th><th>s&#8321;</th><th>e&#8322;</th><th class="ha">a&#8322;</th><th class="ha">a&#8323;</th><th>RHS</th><th class="hl">Ratio</th></tr>
+  <tr class="r0"><td>z</td><td>1</td><td>g&#8321;</td><td>g&#8322;</td><td>0</td><td>−M</td><td class="ha">0</td><td class="ha">0</td><td>cM</td><td>—</td></tr>
+  <tr><td>s&#8321;</td><td>0</td><td>•</td><td>•</td><td>1</td><td>0</td><td class="ha">0</td><td class="ha">0</td><td>b&#8321;</td><td class="hl">•</td></tr>
+  <tr><td class="ha">a&#8322;</td><td>0</td><td>•</td><td>•</td><td>0</td><td>−1</td><td class="ha">1</td><td class="ha">0</td><td>b&#8322;</td><td class="hl">•</td></tr>
+  <tr><td class="ha">a&#8323;</td><td>0</td><td>•</td><td>•</td><td>0</td><td>0</td><td class="ha">0</td><td class="ha">1</td><td>b&#8323;</td><td class="hl">•</td></tr>
+</table>
+<div class="tnote">
+gⱼ = a Row-0 coeff that carries an M-term (form pM−q) · cM = an M-multiple · <span class="ha">&nbsp;purple&nbsp;</span> = artificial columns/rows (must end at 0). <b>What differs from ordinary simplex:</b><br>
+<span class="num">•</span> <b>Starting basis</b> = s&#8321;, a&#8322;, a&#8323; — the ≥ and = rows start on their artificials (a ≤ row starts on its slack).<br>
+<span class="num">•</span> <b>Row 0 already cleared</b> in Step 4: artificial columns show 0; the x-coeffs and RHS carry M.<br>
+<span class="num">•</span> <b>Same loop</b> — but since M dominates, the entering rule attacks the artificial-heavy columns first, driving a&#8322;, a&#8323; out.<br>
+<span class="num">•</span> <b>Extra final check</b> — at STOP: all artificials = 0 → feasible optimum; any artificial &gt; 0 → LP infeasible.
+</div>
+</div>
+
+<h2>Definitions &amp; quick reference</h2>
+<div class="defs">
+<div class="row"><b>bfs</b> (basic feasible solution) = pick (#constraints) variables to be basic, set the rest to 0, and all come out ≥ 0. A bfs <b>is a corner</b> of the feasible region; simplex hops corner-to-corner.</div>
+<div class="row"><b>basic</b> = in the solution (value read off the RHS) · <b>nonbasic</b> = set to 0.</div>
+<div class="row"><b>standard form</b> = all constraints are equations, all variables ≥ 0.</div>
+<div class="row"><b>slack (+s)</b> = unused room on a ≤ · <b>surplus (−e)</b> = amount above a ≥ minimum · <b>artificial (+a)</b> = fake variable to start; penalty M forces it to 0.</div>
+<div class="row"><b>binding</b> = constraint holds with equality at the optimum (used up) · <b>non-binding</b> = slack remains · <b>redundant</b> = line never bounds the region.</div>
+<div class="row"><b>convert:</b> ≤ → +s · ≥ → −e + a · = → +a &nbsp;|&nbsp; <b>enter:</b> max most-neg / min most-pos Row 0 &nbsp;|&nbsp; <b>Big-M penalty:</b> min +Ma / max −Ma.</div>
+</div>
+<div class="warn"><b>Diagnostics at a glance:</b> UNBOUNDED = entering column has no positive entry · INFEASIBLE = an artificial stays basic at &gt; 0 · ALTERNATIVE OPTIMA = a nonbasic Row-0 coeff = 0 at the optimum · DEGENERATE = a basic variable = 0 (ratio-test tie).</div>
+
+</div>
+</body>
+</html>

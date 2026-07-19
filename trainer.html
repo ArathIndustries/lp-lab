@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LP Trainer — guided simplex & Big-M walkthroughs</title>
+</head>
+<body>
+<title>LP Trainer — guided simplex & Big-M walkthroughs</title>
+<style>
+:root{
+  --paper:#f4f2ec; --panel:#fbfaf6; --ink:#1b232c; --ink-soft:#4a5560;
+  --line:#d8d3c6; --grid:rgba(47,111,176,.10);
+  --blue:#2f6fb0; --green:#3f9d6d; --green-fill:rgba(63,157,109,.16);
+  --amber:#c9791d; --red:#c0483b; --accent:var(--blue);
+  --shadow:0 1px 2px rgba(27,35,44,.06),0 8px 24px rgba(27,35,44,.07);
+  --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --paper:#0f1620; --panel:#161f2b; --ink:#e7edf3; --ink-soft:#9fb0c0;
+  --line:#26333f; --grid:rgba(90,160,224,.12);
+  --blue:#5aa0e0; --green:#58c08a; --green-fill:rgba(88,192,138,.16); --amber:#e5a24a; --red:#e0685a;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+}}
+:root[data-theme="light"]{
+  --paper:#f4f2ec; --panel:#fbfaf6; --ink:#1b232c; --ink-soft:#4a5560;
+  --line:#d8d3c6; --grid:rgba(47,111,176,.10);
+  --blue:#2f6fb0; --green:#3f9d6d; --green-fill:rgba(63,157,109,.16); --amber:#c9791d; --red:#c0483b;
+  --shadow:0 1px 2px rgba(27,35,44,.06),0 8px 24px rgba(27,35,44,.07);
+}
+:root[data-theme="dark"]{
+  --paper:#0f1620; --panel:#161f2b; --ink:#e7edf3; --ink-soft:#9fb0c0;
+  --line:#26333f; --grid:rgba(90,160,224,.12);
+  --blue:#5aa0e0; --green:#58c08a; --green-fill:rgba(88,192,138,.16); --amber:#e5a24a; --red:#e0685a;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.5;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:26px 26px;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:22px 20px 80px}
+header.masthead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:12px;margin-bottom:6px}
+.mark{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(24px,4vw,34px);margin:2px 0;text-wrap:balance;letter-spacing:-.01em}
+.sub{color:var(--ink-soft);font-size:13.5px;max-width:66ch}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:20px 0 14px}
+.tab{font-family:var(--sans);font-size:13.5px;font-weight:600;padding:9px 14px;border:1px solid var(--line);background:var(--panel);color:var(--ink-soft);border-radius:9px 9px 0 0;cursor:pointer;display:flex;gap:8px;align-items:center}
+.tab .n{font-family:var(--mono);font-size:11px;color:var(--accent);opacity:.85}
+.tab[aria-selected="true"]{color:var(--ink);border-color:var(--ink);border-bottom-color:var(--panel);background:var(--panel);box-shadow:var(--shadow)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:0 12px 12px 12px;box-shadow:var(--shadow);padding:20px}
+.bankbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.bankbar .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-soft);margin-right:2px}
+.chip{font-family:var(--sans);font-size:12.5px;padding:6px 11px;border:1px solid var(--line);background:transparent;color:var(--ink-soft);border-radius:999px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.prob{border-left:3px solid var(--accent);padding:2px 0 2px 14px;margin:0 0 16px}
+.prob h3{margin:0 0 4px;font-size:15px;font-family:var(--serif);font-weight:600}
+.prob .tag{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);border:1px solid var(--amber);border-radius:5px;padding:1px 6px;margin-left:8px;vertical-align:middle}
+.prob p{margin:6px 0;font-size:14px}
+.model{font-family:var(--mono);font-size:13.5px;background:rgba(127,127,127,.06);border:1px solid var(--line);border-radius:8px;padding:12px 14px;white-space:pre-wrap;overflow-x:auto}
+.row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.col{flex:1 1 320px;min-width:280px}
+button.act{font-family:var(--sans);font-weight:600;font-size:13px;padding:9px 15px;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+button.act:disabled{opacity:.4;cursor:not-allowed}
+button.act:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}
+label.field{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em}
+input.val,textarea.val,select.val{font-family:var(--mono);font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:8px 10px}
+input.val{width:90px}
+textarea.val{width:100%;min-height:120px;line-height:1.55}
+input.val:focus,textarea.val:focus,select.val:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.verdict{font-size:13.5px;font-weight:600;padding:8px 12px;border-radius:8px;margin-top:4px;display:none}
+.verdict.show{display:block}
+.verdict.ok{background:var(--green-fill);color:var(--green);border:1px solid var(--green)}
+.verdict.no{background:rgba(192,72,59,.12);color:var(--red);border:1px solid var(--red)}
+.verdict.info{background:rgba(127,127,127,.08);color:var(--ink-soft);border:1px solid var(--line)}
+table.tab-t{border-collapse:collapse;font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;width:100%}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;margin:8px 0}
+table.tab-t th,table.tab-t td{padding:5px 9px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+table.tab-t th{background:rgba(127,127,127,.07);font-weight:600;color:var(--ink-soft);font-family:var(--sans);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+table.tab-t td.bv,table.tab-t th.bv{text-align:left;color:var(--accent);font-weight:600;position:sticky;left:0;background:var(--panel)}
+table.tab-t tr.r0 td{border-bottom:2px solid var(--ink);background:rgba(47,111,176,.06)}
+table.tab-t td.pcol{background:rgba(201,121,29,.14)}
+table.tab-t tr.prow td{background:rgba(63,157,109,.10)}
+table.tab-t td.pivot{outline:2px solid var(--amber);outline-offset:-2px;border-radius:50%;font-weight:700;color:var(--amber)}
+.stepnote{font-size:13.5px;margin:6px 0}
+.stepnote b{color:var(--accent)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);margin-top:6px}
+.legend span{display:flex;gap:5px;align-items:center}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+svg.plot{width:100%;height:auto;background:var(--paper);border:1px solid var(--line);border-radius:8px}
+.hint{font-size:12.5px;color:var(--ink-soft);margin-top:8px}
+.kbd{font-family:var(--mono);font-size:12px;background:rgba(127,127,127,.12);border-radius:4px;padding:1px 5px}
+.theme-toggle{margin-left:auto;font-size:12px;color:var(--ink-soft);border:1px solid var(--line);background:transparent;border-radius:7px;padding:6px 10px;cursor:pointer}
+hr.sep{border:none;border-top:1px solid var(--line);margin:18px 0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.genbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 14px;padding:10px 12px;border:1px dashed var(--accent);border-radius:9px;background:rgba(47,111,176,.05)}
+.genbar .lbl2{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);font-weight:700}
+pre.build{font-family:var(--mono);font-size:13px;background:rgba(127,127,127,.06);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:10px 12px;white-space:pre-wrap;overflow-x:auto;margin:8px 0}
+.bexp{font-size:13.5px;margin:6px 0}.bexp b{color:var(--accent)}
+.steptitle{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.05em;font-weight:700;margin:2px 0 8px;text-transform:uppercase}
+</style>
+
+<div class="wrap">
+<header class="masthead">
+  <span class="mark">Operations Research · Linear Programming</span>
+  <button class="theme-toggle" id="themeBtn" type="button">Toggle theme</button>
+  <div style="flex-basis:100%"></div>
+  <h1>LP Trainer — guided simplex &amp; Big-M walkthroughs</h1>
+</header>
+<p class="sub">Four core LP topics plus a build-your-own solver — computed live in Winston row-0 conventions and exact fractions, fully offline. Each walkthrough now starts from the <b>raw problem</b> and builds the tableau step by step (standard form → Row 0 → Big-M elimination → iterate). Use the known textbook problems to learn the mechanics, then hit <b>🎲 Generate</b> for a fresh unseen problem and solve it with only your cheat sheet.</p>
+
+<div class="tabs" role="tablist" id="tabs">
+  <button class="tab" role="tab" data-tab="form" aria-selected="true"><span class="n">1</span> LP Formulation</button>
+  <button class="tab" role="tab" data-tab="graph" aria-selected="false"><span class="n">2</span> Graphical</button>
+  <button class="tab" role="tab" data-tab="simplex" aria-selected="false"><span class="n">3</span> Simplex</button>
+  <button class="tab" role="tab" data-tab="bigm" aria-selected="false"><span class="n">4</span> Big-M</button>
+  <button class="tab" role="tab" data-tab="custom" aria-selected="false"><span class="n">＋</span> Your problem</button>
+</div>
+
+<div class="panel" id="panel"></div>
+<p class="hint" style="text-align:center;margin-top:22px">Solver verified against Giapetto · Dakota (z=280) · Bevco (z=25 &amp; infeasible) · Winston Ex 4.6 (z=−12). Same row-0 Big-M logic as the console solvers in the <span class="kbd">solvers</span> folder.</p>
+</div>
+
+<script>
+/* ===================== VERIFIED SOLVER (exact-fraction row-0 Big-M) ===================== */
+function gcd(a,b){a=a<0n?-a:a;b=b<0n?-b:b;while(b){[a,b]=[b,a%b];}return a||1n;}
+class F{
+  constructor(n,d=1n){n=BigInt(n);d=BigInt(d);if(d===0n)throw new Error("divide by zero");if(d<0n){n=-n;d=-d;}const g=gcd(n,d);this.n=n/g;this.d=d/g;}
+  static w(x){
+    if(x instanceof F)return x;
+    if(typeof x==='number'){if(Number.isInteger(x))return new F(BigInt(x));x=String(x);}
+    if(typeof x==='string'){
+      x=x.trim();if(x===''||x==='+'||x==='-')throw new Error("empty number");
+      if(x.includes('/')){const p=x.split('/');return F.w(p[0]).div(F.w(p[1]));}
+      if(x.includes('.')){let neg=x[0]==='-';x=x.replace(/^[+-]/,'');const[ip,fp='']=x.split('.');const d=10n**BigInt(fp.length);let n=BigInt((ip||'0')+(fp||''));if(neg)n=-n;return new F(n,d);}
+      return new F(BigInt(x));
+    }
+    return new F(BigInt(x));
+  }
+  add(o){o=F.w(o);return new F(this.n*o.d+o.n*this.d,this.d*o.d);}
+  sub(o){o=F.w(o);return new F(this.n*o.d-o.n*this.d,this.d*o.d);}
+  mul(o){o=F.w(o);return new F(this.n*o.n,this.d*o.d);}
+  div(o){o=F.w(o);return new F(this.n*o.d,this.d*o.n);}
+  neg(){return new F(-this.n,this.d);} abs(){return this.n<0n?this.neg():this;}
+  cmp(o){o=F.w(o);const s=this.sub(o).n;return s<0n?-1:(s>0n?1:0);}
+  isZero(){return this.n===0n;} num(){return Number(this.n)/Number(this.d);}
+  toString(){return this.d===1n?`${this.n}`:`${this.n}/${this.d}`;}
+}
+class M{
+  constructor(c=new F(0),m=new F(0)){this.c=F.w(c);this.m=F.w(m);}
+  static w(x){return x instanceof M?x:new M(F.w(x));}
+  add(o){o=M.w(o);return new M(this.c.add(o.c),this.m.add(o.m));}
+  sub(o){o=M.w(o);return new M(this.c.sub(o.c),this.m.sub(o.m));}
+  mul(o){o=M.w(o);return new M(this.c.mul(o.c),this.m.mul(o.c).add(o.m.mul(this.c)));}
+  neg(){return new M(this.c.neg(),this.m.neg());} isZero(){return this.m.isZero()&&this.c.isZero();}
+  cmp(o){o=M.w(o);const mc=this.m.cmp(o.m);return mc!==0?mc:this.c.cmp(o.c);}
+  toString(){
+    const m=this.m,c=this.c;
+    if(m.isZero())return c.toString();
+    let mt=m.cmp(1)===0?"M":(m.cmp(-1)===0?"−M":`${m}M`);
+    if(c.isZero())return mt;
+    return `${mt}${c.cmp(0)>0?"+":"−"}${c.abs()}`;
+  }
+}
+function standardize(prob){
+  const sense=prob.sense,n=prob.c.length,bigMSign=sense==='max'?-1:1;
+  const rows=prob.cons.map(cn=>cn.a.map(v=>F.w(v)));
+  const rhs=prob.cons.map(cn=>F.w(cn.b));
+  const senses=prob.cons.map(cn=>cn.sense);
+  for(let i=0;i<rows.length;i++){if(rhs[i].cmp(0)<0){rows[i]=rows[i].map(v=>v.neg());rhs[i]=rhs[i].neg();senses[i]=senses[i]==='<='?'>=':(senses[i]==='>='?'<=':'=');}}
+  const varNames=[...Array(n)].map((_,j)=>`x${j+1}`),varKinds=Array(n).fill('decision');
+  const objCoef=prob.c.map(v=>new M(F.w(v))),basis=Array(rows.length).fill(null),artCols=[];
+  function addCol(name,kind,cj,ri,val){varNames.push(name);varKinds.push(kind);objCoef.push(cj);rows.forEach((r,k)=>r.push(k===ri?F.w(val):new F(0)));}
+  senses.forEach((s,i)=>{
+    if(s==='<='){addCol(`s${i+1}`,'slack',new M(new F(0)),i,1);basis[i]=varNames.length-1;}
+    else if(s==='>='){addCol(`e${i+1}`,'surplus',new M(new F(0)),i,-1);addCol(`a${i+1}`,'artificial',new M(new F(0),new F(bigMSign)),i,1);basis[i]=varNames.length-1;artCols.push(varNames.length-1);}
+    else{addCol(`a${i+1}`,'artificial',new M(new F(0),new F(bigMSign)),i,1);basis[i]=varNames.length-1;artCols.push(varNames.length-1);}
+  });
+  let row0=objCoef.map(m=>m.neg()),rhs0=new M(new F(0));
+  for(let i=0;i<basis.length;i++){const col=basis[i];if(!row0[col].isZero()){const f=row0[col];row0=row0.map((v,j)=>v.sub(f.mul(new M(rows[i][j]))));rhs0=rhs0.sub(f.mul(new M(rhs[i])));}}
+  return {varNames,varKinds,rows,rhs,basis,row0,rhs0,artCols,nDec:n,sense};
+}
+function chooseEntering(t){let bj=null,bv=new M(new F(0));for(let j=0;j<t.row0.length;j++){const v=t.row0[j];if(t.sense==='max'&&v.cmp(bv)<0){bj=j;bv=v;}else if(t.sense==='min'&&v.cmp(bv)>0){bj=j;bv=v;}}return bj;}
+function ratioTest(t,col){let bi=null,br=null;const strs=[];for(let i=0;i<t.rows.length;i++){const a=t.rows[i][col];if(a.cmp(0)>0){const r=t.rhs[i].div(a);strs.push(`${t.rhs[i]} ÷ ${a} = ${r}`);if(br===null||r.cmp(br)<0){bi=i;br=r;}}else strs.push(null);}return {row:bi,ratios:strs};}
+function pivot(t,pr,pc){const p=t.rows[pr][pc];t.rows[pr]=t.rows[pr].map(v=>v.div(p));t.rhs[pr]=t.rhs[pr].div(p);const f0=t.row0[pc];if(!f0.isZero()){t.row0=t.row0.map((v,j)=>v.sub(f0.mul(new M(t.rows[pr][j]))));t.rhs0=t.rhs0.sub(f0.mul(new M(t.rhs[pr])));}for(let i=0;i<t.rows.length;i++){if(i===pr)continue;const f=t.rows[i][pc];if(f.isZero())continue;t.rows[i]=t.rows[i].map((v,j)=>v.sub(f.mul(t.rows[pr][j])));t.rhs[i]=t.rhs[i].sub(f.mul(t.rhs[pr]));}t.basis[pr]=pc;}
+function snap(t,extra){return Object.assign({varNames:[...t.varNames],varKinds:[...t.varKinds],rows:t.rows.map(r=>r.map(v=>v.toString())),rhs:t.rhs.map(v=>v.toString()),basis:[...t.basis],row0:t.row0.map(v=>v.toString()),rhs0:t.rhs0.toString()},extra);}
+function ssub(n){return String(n).split('').map(c=>'₀₁₂₃₄₅₆₇₈₉'[+c]).join('');}
+function elimStr(Ri,f,P){const isM=f instanceof M;const zero=isM?new M(new F(0)):new F(0);const pos=f.cmp(zero)>=0;const mag=pos?f:f.neg();return `${Ri} ${pos?'−':'+'} (${fmt(mag.toString())})·${P} → ${Ri}`;}
+function rowOps(t,pr,pc){
+  const p=t.rows[pr][pc];const P='R'+ssub(pr+1);const ops=[];
+  if(p.cmp(new F(1))!==0){const rec=new F(1).div(p);ops.push(`(${fmt(rec.toString())})·${P} → ${P}    ⟵ divide the pivot row by ${fmt(p.toString())} so the pivot becomes 1`);}
+  const f0=t.row0[pc];if(!f0.isZero())ops.push(elimStr('R₀',f0,P));
+  for(let i=0;i<t.rows.length;i++){if(i===pr)continue;const f=t.rows[i][pc];if(f.isZero())continue;ops.push(elimStr('R'+ssub(i+1),f,P));}
+  return ops;
+}
+function solve(prob){
+  const t=standardize(prob);const steps=[];let status='optimal',iter=0;
+  while(true){iter++;if(iter>80){status='stalled';break;}
+    const e=chooseEntering(t);
+    if(e===null){steps.push(snap(t,{note:'optimal',entering:null}));break;}
+    const {row,ratios}=ratioTest(t,e);
+    if(row===null){steps.push(snap(t,{note:'unbounded',entering:t.varNames[e]}));status='unbounded';break;}
+    const _ops=rowOps(t,row,e),_pel=t.rows[row][e].toString();
+    steps.push(snap(t,{note:'pivot',entering:t.varNames[e],enteringCol:e,leaving:t.varNames[t.basis[row]],leavingRow:row,ratios,pivot:[row,e],rowops:_ops,pivotEl:_pel}));
+    pivot(t,row,e);
+  }
+  const artSet=new Set(t.varNames.map((_,j)=>j).filter(j=>t.varKinds[j]==='artificial'));
+  for(let i=0;i<t.basis.length;i++){if(artSet.has(t.basis[i])&&t.rhs[i].cmp(0)>0)status='infeasible';}
+  const values={};t.varNames.forEach(n=>values[n]=new F(0));t.basis.forEach((c,i)=>values[t.varNames[c]]=t.rhs[i]);
+  const x=[...Array(t.nDec)].map((_,j)=>values[`x${j+1}`]);
+  let alternate=false,degenerate=false;
+  if(status==='optimal'){
+    for(let j=0;j<t.varNames.length;j++){if(t.basis.includes(j)||t.varKinds[j]==='artificial')continue;if(t.row0[j].isZero())alternate=true;}
+    for(let i=0;i<t.basis.length;i++){if(t.rhs[i].isZero())degenerate=true;}
+  }
+  return {status,steps,alternate,degenerate,zStr:t.rhs0.toString(),zNum:t.rhs0.c.num(),x:x.map(v=>v.toString()),xNum:x.map(v=>v.num())};
+}
+/* ===================== GRAPHICAL (corner enumeration for drawing) ===================== */
+function cornerEnum(prob){
+  const cons=prob.cons.map(c=>({a1:F.w(c.a[0]).num(),a2:F.w(c.a[1]).num(),s:c.sense,b:F.w(c.b).num()}));
+  const lines=[...cons.map(c=>({a1:c.a1,a2:c.a2,b:c.b})),{a1:1,a2:0,b:0},{a1:0,a2:1,b:0}];
+  const c=[F.w(prob.c[0]).num(),F.w(prob.c[1]).num()];
+  const feas=(x,y)=>cons.every(cn=>{const v=cn.a1*x+cn.a2*y;if(cn.s==='<=')return v<=cn.b+1e-7;if(cn.s==='>=')return v>=cn.b-1e-7;return Math.abs(v-cn.b)<=1e-7;})&&x>=-1e-7&&y>=-1e-7;
+  const pts=[];const seen=new Set();
+  for(let i=0;i<lines.length;i++)for(let j=i+1;j<lines.length;j++){
+    const A=lines[i],B=lines[j],det=A.a1*B.a2-A.a2*B.a1;if(Math.abs(det)<1e-9)continue;
+    const x=(A.b*B.a2-A.a2*B.b)/det,y=(A.a1*B.b-A.b*B.a1)/det;
+    if(!feas(x,y))continue;const k=`${x.toFixed(4)},${y.toFixed(4)}`;if(seen.has(k))continue;seen.add(k);
+    pts.push({x,y,z:c[0]*x+c[1]*y});
+  }
+  const cx=pts.reduce((s,p)=>s+p.x,0)/(pts.length||1),cy=pts.reduce((s,p)=>s+p.y,0)/(pts.length||1);
+  pts.sort((p,q)=>Math.atan2(p.y-cy,p.x-cx)-Math.atan2(q.y-cy,q.x-cx));
+  return {pts,cons,c};
+}
+/* ===================== BUILD-FROM-SCRATCH NARRATION ===================== */
+function termList(a){return a.map((v,j)=>{const s=fmt(String(v));return (j===0?'':' + ')+s+sub('x'+(j+1));}).join('');}
+function row0term(v,j){const f=F.w(v);return (f.cmp(0)>=0?'− ':'+ ')+fmt(f.abs().toString())+sub('x'+(j+1));}
+function buildNarration(prob){
+  const t=standardize(prob),sense=prob.sense,bigM=prob.cons.some(c=>c.sense!=='<=');
+  const B=[];
+  const sf=prob.cons.map((cn,i)=>{const add=cn.sense==='<='?` + s${i+1}`:cn.sense==='>='?` − e${i+1} + a${i+1}`:` + a${i+1}`;return `${termList(cn.a)}${add} = ${fmt(String(cn.b))}`;}).join('\n');
+  B.push({t:'① Standard form',h:`<p class="bexp">Make every constraint an <b>equation</b>. &nbsp;≤ → add slack <b>+sᵢ</b> &nbsp;·&nbsp; ≥ → subtract surplus <b>−eᵢ</b> then add artificial <b>+aᵢ</b> &nbsp;·&nbsp; = → add artificial <b>+aᵢ</b>. The slacks and artificials become the starting <b>basic</b> variables.</p><pre class="build">${sf}\nall variables ≥ 0</pre>`});
+  let pen='';
+  if(bigM){const arts=t.varNames.filter((_,j)=>t.varKinds[j]==='artificial');pen=' '+arts.map(a=>`${sense==='max'?'−':'+'} M·${sub(a)}`).join(' ');}
+  B.push({t:'② Objective → Row 0',h:`<p class="bexp">Move the objective across "=" so its coefficients flip sign — this is <b>Row 0</b>:</p><pre class="build">z ${prob.c.map((v,j)=>row0term(v,j)).join(' ')}${pen} = 0</pre>${bigM?`<p class="bexp">Each artificial carries a penalty <b>${sense==='max'?'−M':'+M'}·aᵢ</b>, so the method is forced to drive it to 0.</p>`:''}`});
+  if(bigM){
+    B.push({t:'③ Clear artificials from Row 0',h:`<p class="bexp">Artificials start <b>basic</b>, so they must read 0 in Row 0. Eliminate them with a row operation: <b>New Row 0 = Row 0 ${sense==='max'?'−':'+'} M·(each artificial's row)</b>. Row 0 then carries symbolic M terms:</p><pre class="build">z:  ${t.row0.map((v,j)=>`${fmt(v.toString())}${sub(t.varNames[j])}`).join('   ')}   = ${fmt(t.rhs0.toString())}</pre>`});
+  }
+  B.push({t:(bigM?'④':'③')+' Initial tableau — start iterating',h:'__INIT__'});
+  return {B,initSnap:snap(t,{note:'start'})};
+}
+/* ===================== RANDOM PROBLEM GENERATORS ===================== */
+function ri(lo,hi){return lo+Math.floor(Math.random()*(hi-lo+1));}
+function pk(a){return a[Math.floor(Math.random()*a.length)];}
+function asProb(sense,c,cons){return {sense,c:c.map(String),cons:cons.map(k=>({a:k.a.map(String),sense:k.sense,b:String(k.b)}))};}
+function probText(prob){
+  const c=prob.c,cons=prob.cons;
+  const obj=`${prob.sense} z = ${c.map((v,j)=>`${fmt(String(v))}${sub('x'+(j+1))}`).join(' + ')}`;
+  const cs=cons.map(k=>`${k.a.map((v,j)=>`${fmt(String(v))}${sub('x'+(j+1))}`).join(' + ')} ${k.sense==='<='?'≤':k.sense==='>='?'≥':'='} ${fmt(String(k.b))}`).join(',   ');
+  return `${obj}   s.t.  ${cs},   x ≥ 0.`;
+}
+function genSimplex(kase){
+  for(let t=0;t<800;t++){
+    const n=pk([2,3]),m=pk([2,3]);
+    const c=Array.from({length:n},()=>ri(1,8));
+    let cons=Array.from({length:m},()=>({a:Array.from({length:n},()=>ri(1,6)),sense:'<=',b:ri(10,40)}));
+    if(kase==='unbounded'){const j=ri(0,n-1);cons.forEach(k=>k.a[j]=-ri(0,3));c[j]=ri(2,6);}
+    if(kase==='alternate'){const k=pk(cons);for(let j=0;j<c.length;j++)c[j]=k.a[j]*2;}
+    const prob=asProb('max',c,cons);const r=solve(prob);
+    const ok=kase==='unique'?(r.status==='optimal'&&!r.alternate&&!r.degenerate)
+            :kase==='unbounded'?(r.status==='unbounded')
+            :kase==='alternate'?(r.status==='optimal'&&r.alternate)
+            :kase==='degenerate'?(r.status==='optimal'&&r.degenerate):false;
+    if(ok)return prob;
+  }
+  return null;
+}
+function genBigM(kase){
+  for(let t=0;t<800;t++){
+    let prob;
+    if(kase==='infeasible'){
+      prob=asProb('min',[ri(1,6),ri(1,6)],[{a:[1,0],sense:'>=',b:ri(15,28)},{a:[1,1],sense:'<=',b:ri(2,6)},{a:[0,1],sense:'>=',b:1}]);
+    } else {
+      const pt=[ri(1,8),ri(1,8)],senses=pk([['<=','>='],['<=','='],['>=','='],['<=','>=','=']]);
+      const cons=senses.map(s=>{const a=[ri(1,5),ri(1,5)];const v=a[0]*pt[0]+a[1]*pt[1];let b=v;if(s==='<=')b=v+ri(0,8);if(s==='>=')b=v-ri(0,Math.max(0,Math.min(8,v-1)));return {a,sense:s,b};});
+      prob=asProb('min',[ri(1,6),ri(1,6)],cons);
+    }
+    const r=solve(prob);
+    const ok=kase==='infeasible'?(r.status==='infeasible'):(r.status==='optimal'&&!r.alternate&&!r.degenerate);
+    if(ok)return prob;
+  }
+  return null;
+}
+function genGraph(kase){
+  for(let t=0;t<800;t++){
+    let prob;
+    if(kase==='infeasible') prob=asProb('max',[1,1],[{a:[1,1],sense:'<=',b:ri(2,4)},{a:[1,1],sense:'>=',b:ri(6,9)}]);
+    else if(kase==='unbounded') prob=asProb('max',[ri(1,6),ri(1,6)],[{a:[1,1],sense:'>=',b:ri(3,8)},{a:[2,1],sense:'>=',b:ri(3,8)}]);
+    else{
+      const c=[ri(1,8),ri(1,8)];let cons=Array.from({length:pk([2,3])},()=>({a:[ri(1,6),ri(1,6)],sense:'<=',b:ri(8,30)}));
+      if(kase==='alternate'){const k=pk(cons);c[0]=k.a[0]*2;c[1]=k.a[1]*2;}
+      prob=asProb('max',c,cons);
+    }
+    const r=solve(prob);
+    const ok=kase==='infeasible'?(r.status==='infeasible')
+            :kase==='unbounded'?(r.status==='unbounded')
+            :kase==='alternate'?(r.status==='optimal'&&r.alternate)
+            :(r.status==='optimal'&&!r.alternate&&!r.degenerate);
+    if(ok)return prob;
+  }
+  return null;
+}
+function genForm(kase){
+  if(kase==='multi-period'){
+    const T=ri(3,4);const d=Array.from({length:T},()=>ri(20,80));
+    const rc=ri(4,8),oc=rc+ri(2,4),hc=ri(1,3),rcap=ri(40,70),ocap=ri(20,40);
+    const bal=Array.from({length:T},(_,t)=>`      i${ssub(t+1)} = ${t===0?'0':'i'+ssub(t)} + x${ssub(t+1)} + y${ssub(t+1)} − ${d[t]}     (period ${t+1})`).join('\n');
+    const text=`A plant must meet demand of <b>${d.join(', ')}</b> over ${T} periods. Regular production costs $${rc}/unit (≤ ${rcap}/period); overtime costs $${oc}/unit (≤ ${ocap}/period); holding a unit into the next period costs $${hc}. Start inventory is 0. Minimize total cost.`;
+    const model=`Decision variables (t = 1..${T})\n  x_t = regular units produced in period t\n  y_t = overtime units produced in period t\n  i_t = units held at end of period t\n\nmin z = Σ_t ( ${rc}·x_t + ${oc}·y_t + ${hc}·i_t )\ns.t.  (inventory balance — end = start + made − shipped;  i_0 = 0)\n${bal}\n      x_t ≤ ${rcap}     (regular capacity, each t)\n      y_t ≤ ${ocap}     (overtime capacity, each t)\n      x_t, y_t, i_t ≥ 0`;
+    return {name:'Generated',tag:'multi-period (min)',text,model,prob:null};
+  }
+  if(kase==='scheduling'){
+    const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const need=Array.from({length:7},()=>ri(4,14));
+    const cover=d=>{const s=[];for(let k=0;k<5;k++)s.push(((d-k)%7+7)%7);return s.sort((a,b)=>a-b);};
+    const rows=need.map((nd,d)=>`      ${cover(d).map(c=>'x'+(c+1)).join(' + ')} ≥ ${nd}     (${days[d]})`).join('\n');
+    const text=`A service desk needs <b>${need.join(', ')}</b> staff on ${days.join(', ')}. Each worker works <b>5 consecutive days</b> then gets 2 off. Minimize the number of workers hired.`;
+    const model=`Decision variables\n  x_i = workers who START their 5-day week on day i   (1 = Mon … 7 = Sun)\n\nmin z = x₁ + x₂ + x₃ + x₄ + x₅ + x₆ + x₇        (total workers)\ns.t.\n${rows}\n      x_i ≥ 0\n\nEach day is staffed by that day's starter + the 4 previous days' starters (the week wraps).`;
+    return {name:'Generated',tag:'scheduling (min)',text,model,prob:null};
+  }
+  if(kase==='diet'){
+    const cost=[ri(2,6)/10,ri(3,8)/10].map(v=>Math.round(v*100)/100);
+    const A=[[ri(2,8),ri(3,9)],[ri(2,9),ri(2,7)]],req=[ri(20,40),ri(20,40)];
+    const prob={sense:'min',c:cost.map(String),cons:[{a:A[0].map(String),sense:'>=',b:String(req[0])},{a:A[1].map(String),sense:'>=',b:String(req[1])}]};
+    const text=`A meal mixes <b>food A</b> (x₁, $${cost[0]}/serv) and <b>food B</b> (x₂, $${cost[1]}/serv). Serving of A gives ${A[0][0]} units nutrient 1 and ${A[1][0]} units nutrient 2; serving of B gives ${A[0][1]} and ${A[1][1]}. Need ≥ ${req[0]} of nutrient 1 and ≥ ${req[1]} of nutrient 2. Minimize cost.`;
+    const model=`Decision variables\n  x₁ = servings of food A\n  x₂ = servings of food B\n\nmin w = ${cost[0]}x₁ + ${cost[1]}x₂        (cost, $)\ns.t.  ${A[0][0]}x₁ + ${A[0][1]}x₂ ≥ ${req[0]}     (nutrient 1)\n      ${A[1][0]}x₁ + ${A[1][1]}x₂ ≥ ${req[1]}     (nutrient 2)\n      x₁, x₂ ≥ 0`;
+    return {name:'Generated',tag:'diet (min)',text,model,prob};
+  }
+  const pr=[ri(20,60),ri(20,60)],A=[[ri(1,5),ri(1,5)],[ri(1,5),ri(1,5)]],cap=[ri(40,120),ri(40,120)];
+  const prob={sense:'max',c:pr.map(String),cons:[{a:A[0].map(String),sense:'<=',b:String(cap[0])},{a:A[1].map(String),sense:'<=',b:String(cap[1])}]};
+  const text=`A shop makes <b>product A</b> (x₁, $${pr[0]} profit) and <b>product B</b> (x₂, $${pr[1]} profit). Each A uses ${A[0][0]} hr on machine 1 and ${A[1][0]} hr on machine 2; each B uses ${A[0][1]} and ${A[1][1]}. Machine 1 has ${cap[0]} hr, machine 2 has ${cap[1]} hr. Maximize profit.`;
+  const model=`Decision variables\n  x₁ = units of product A per week\n  x₂ = units of product B per week\n\nmax z = ${pr[0]}x₁ + ${pr[1]}x₂        (profit, $)\ns.t.  ${A[0][0]}x₁ + ${A[0][1]}x₂ ≤ ${cap[0]}     (machine 1 hours)\n      ${A[1][0]}x₁ + ${A[1][1]}x₂ ≤ ${cap[1]}     (machine 2 hours)\n      x₁, x₂ ≥ 0`;
+  return {name:'Generated',tag:'product mix (max)',text,model,prob};
+}
+function genProblem(tab,kase){
+  if(tab==='form')return genForm(kase);
+  const p= tab==='simplex'?genSimplex(kase): tab==='bigm'?genBigM(kase): genGraph(kase);
+  if(!p)return null;
+  return {name:'Generated',tag:kase,text:probText(p),prob:p};
+}
+/* ===================== PROBLEM BANKS ===================== */
+const BANKS={
+ form:[
+  {name:"Product mix", tag:"maximize",
+   text:"A furniture shop builds <b>bookcases</b> (x₁) and <b>desks</b> (x₂). A bookcase yields $40 profit, a desk $55. Each bookcase needs 3 hr cutting and 1 hr finishing; each desk needs 2 hr cutting and 4 hr finishing. Weekly capacity is 120 cutting hours and 100 finishing hours. Build no more than 30 bookcases. Formulate the LP.",
+   model:"Decision variables\n  x₁ = bookcases built per week\n  x₂ = desks built per week\n\nmax z = 40x₁ + 55x₂        (weekly profit, $)\ns.t.  3x₁ + 2x₂ ≤ 120       (cutting hours)\n       x₁ + 4x₂ ≤ 100       (finishing hours)\n       x₁         ≤ 30       (bookcase demand)\n       x₁, x₂ ≥ 0",
+   prob:{sense:'max',c:[40,55],cons:[{a:[3,2],sense:'<=',b:120},{a:[1,4],sense:'<=',b:100},{a:[1,0],sense:'<=',b:30}]}},
+  {name:"Diet (min cost)", tag:"minimize",
+   text:"A meal is built from <b>oats</b> (x₁, $0.30/serving) and <b>yogurt</b> (x₂, $0.50/serving). Each oats serving gives 4 g protein and 20 g carbs; each yogurt gives 8 g protein and 5 g carbs. The meal must supply at least 32 g protein and at least 40 g carbs. Minimize cost.",
+   model:"Decision variables\n  x₁ = servings of oats\n  x₂ = servings of yogurt\n\nmin w = 0.30x₁ + 0.50x₂     (cost, $)\ns.t.  4x₁ + 8x₂ ≥ 32          (protein, g)\n      20x₁ + 5x₂ ≥ 40          (carbohydrate, g)\n       x₁, x₂ ≥ 0",
+   prob:{sense:'min',c:['3/10','1/2'],cons:[{a:[4,8],sense:'>=',b:32},{a:[20,5],sense:'>=',b:40}]}},
+  {name:"Scheduling (staffing)", tag:"minimize",
+   text:"A post office needs <b>17, 13, 15, 19, 14, 16, 11</b> employees on Mon–Sun. Each employee works <b>5 consecutive days</b> then gets 2 days off. Minimize the number of employees hired.",
+   model:"Decision variables\n  x_i = employees who START their 5-day week on day i   (1 = Mon … 7 = Sun)\n\nmin z = x₁ + x₂ + x₃ + x₄ + x₅ + x₆ + x₇        (total employees)\ns.t.  x₁ + x₄ + x₅ + x₆ + x₇ ≥ 17     (Mon)\n      x₁ + x₂ + x₅ + x₆ + x₇ ≥ 13     (Tue)\n      x₁ + x₂ + x₃ + x₆ + x₇ ≥ 15     (Wed)\n      x₁ + x₂ + x₃ + x₄ + x₇ ≥ 19     (Thu)\n      x₁ + x₂ + x₃ + x₄ + x₅ ≥ 14     (Fri)\n      x₂ + x₃ + x₄ + x₅ + x₆ ≥ 16     (Sat)\n      x₃ + x₄ + x₅ + x₆ + x₇ ≥ 11     (Sun)\n      x_i ≥ 0\n\nCoverage rule: each day is staffed by that day's starter + the 4 previous days' starters — the week wraps (Monday's 4 previous days are Thu, Fri, Sat, Sun). Multi-variable — reveal only; use the Simplex/Big-M tabs for 2–3 variable problems.",
+   prob:null},
+  {name:"Multi-period production", tag:"minimize",
+   text:"A plant meets demand of <b>40, 60, 75, 25</b> units in quarters 1–4. Regular production costs $6/unit (≤50/qtr); overtime costs $9/unit (≤30/qtr). Holding a unit into the next quarter costs $2. Starting inventory is 0. Minimize total cost.",
+   model:"Decision variables (t = 1..4)\n  x_t = regular units produced in quarter t\n  y_t = overtime units produced in quarter t\n  i_t = units held at end of quarter t\n\nmin z = Σ_t (6 x_t + 9 y_t + 2 i_t)\ns.t.  i_t = i_{t−1} + x_t + y_t − d_t   (inventory balance, each t; i_0 = 0)\n       x_t ≤ 50                          (regular capacity)\n       y_t ≤ 30                          (overtime capacity)\n       x_t, y_t, i_t ≥ 0\nwhere d = (40, 60, 75, 25).\n\n(Multi-variable — reveal only; use the Simplex/Big-M tabs for 2–3 var problems.)",
+   prob:null},
+ ],
+ graph:[
+  {name:"Unique optimum", tag:"1 corner",
+   text:"max z = 3x₁ + 4x₂   s.t.  x₁ + x₂ ≤ 450,   2x₁ + x₂ ≤ 600,   x₁, x₂ ≥ 0.",
+   prob:{sense:'max',c:[3,4],cons:[{a:[1,1],sense:'<=',b:450},{a:[2,1],sense:'<=',b:600}]}},
+  {name:"Alternative optima", tag:"edge",
+   text:"max z = 10x₁ + 6x₂   s.t.  5x₁ + 3x₂ ≤ 30,   x₁ + 2x₂ ≤ 18,   x₁, x₂ ≥ 0.   (objective parallel to the first constraint)",
+   prob:{sense:'max',c:[10,6],cons:[{a:[5,3],sense:'<=',b:30},{a:[1,2],sense:'<=',b:18}]}},
+  {name:"Minimization", tag:"isocost",
+   text:"min z = 4x₁ + 3x₂   s.t.  x₁ + x₂ ≥ 5,   2x₁ + x₂ ≥ 8,   x₁, x₂ ≥ 0.",
+   prob:{sense:'min',c:[4,3],cons:[{a:[1,1],sense:'>=',b:5},{a:[2,1],sense:'>=',b:8}]}},
+  {name:"Infeasible", tag:"no region",
+   text:"max z = x₁ + x₂   s.t.  x₁ + x₂ ≤ 2,   x₁ + x₂ ≥ 5,   x₁, x₂ ≥ 0.   (contradictory)",
+   prob:{sense:'max',c:[1,1],cons:[{a:[1,1],sense:'<=',b:2},{a:[1,1],sense:'>=',b:5}]}},
+ ],
+ simplex:[
+  {name:"Standard max (2 var)", tag:"all ≤",
+   text:"max z = 3x₁ + 2x₂   s.t.  x₁ + x₂ ≤ 4,   2x₁ + x₂ ≤ 5,   x₁, x₂ ≥ 0.   Slacks s₁, s₂ give the starting basis.",
+   prob:{sense:'max',c:[3,2],cons:[{a:[1,1],sense:'<=',b:4},{a:[2,1],sense:'<=',b:5}]}},
+  {name:"Dakota (3 var)", tag:"Winston 4.3",
+   text:"max z = 60x₁ + 35x₂ + 20x₃  (desks, tables, chairs)  s.t.  8x₁+6x₂+x₃ ≤ 48 (lumber),  4x₁+2x₂+1.5x₃ ≤ 20 (finishing),  2x₁+1.5x₂+0.5x₃ ≤ 8 (carpentry),  x₂ ≤ 5.   Optimal z = 280.",
+   prob:{sense:'max',c:[60,35,20],cons:[{a:[8,6,1],sense:'<=',b:48},{a:[4,2,'3/2'],sense:'<=',b:20},{a:[2,'3/2','1/2'],sense:'<=',b:8},{a:[0,1,0],sense:'<=',b:5}]}},
+  {name:"Minimization (Ex 4.6)", tag:"min rule",
+   text:"min z = 2x₁ − 3x₂   s.t.  x₁ + x₂ ≤ 4,   x₁ − x₂ ≤ 6,   x₁, x₂ ≥ 0.   Row-0 min rule: enter the MOST POSITIVE coefficient; stop when none is positive. (Equivalently, Method I: multiply the objective by −1 and maximize.)   Optimal z = −12.",
+   prob:{sense:'min',c:[2,-3],cons:[{a:[1,1],sense:'<=',b:4},{a:[1,-1],sense:'<=',b:6}]}},
+ ],
+ bigm:[
+  {name:"Bevco (feasible)", tag:"Winston 4.10",
+   text:"min z = 2x₁ + 3x₂   s.t.  ½x₁ + ¼x₂ ≤ 4 (sugar),   x₁ + 3x₂ ≥ 20 (vitamin C),   x₁ + x₂ = 10 (10-oz bottle),   x₁, x₂ ≥ 0.   Needs surplus e₂ and artificials a₂, a₃.   Optimal z = 25.",
+   prob:{sense:'min',c:[2,3],cons:[{a:['1/2','1/4'],sense:'<=',b:4},{a:[1,3],sense:'>=',b:20},{a:[1,1],sense:'=',b:10}]}},
+  {name:"Bevco (infeasible)", tag:"a > 0",
+   text:"Same as Bevco but vitamin C is raised to  x₁ + 3x₂ ≥ 36.   Watch an artificial stay basic at a positive value → the LP is infeasible (reported z = 30 + 6M).",
+   prob:{sense:'min',c:[2,3],cons:[{a:['1/2','1/4'],sense:'<=',b:4},{a:[1,3],sense:'>=',b:36},{a:[1,1],sense:'=',b:10}]}},
+  {name:"Max with a ≥", tag:"mixed",
+   text:"max z = 3x₁ + 2x₂   s.t.  x₁ + x₂ ≤ 4,   x₁ + 3x₂ ≥ 6,   x₁, x₂ ≥ 0.   Max Big-M: subtract M·a; enter the MOST NEGATIVE row-0 coefficient.   Optimal z = 11.",
+   prob:{sense:'max',c:[3,2],cons:[{a:[1,1],sense:'<=',b:4},{a:[1,3],sense:'>=',b:6}]}},
+ ],
+};
+/* ===================== SHARED HELPERS ===================== */
+const panel=document.getElementById('panel');
+let cur='form',bank={form:0,graph:0,simplex:0,bigm:0};
+let GEN={form:null,graph:null,simplex:null,bigm:null},usingGen={form:false,graph:false,simplex:false,bigm:false};
+function genBar(tab){
+  const opts={simplex:[['unique','unique optimum'],['unbounded','unbounded'],['alternate','alternative optima'],['degenerate','degenerate']],
+    bigm:[['unique','feasible optimum'],['infeasible','infeasible']],
+    graph:[['unique','unique optimum'],['alternate','alternative optima'],['infeasible','infeasible'],['unbounded','unbounded']],
+    form:[['product-mix','product mix (max)'],['diet','diet (min)'],['scheduling','scheduling (min)'],['multi-period','multi-period (min)']]}[tab];
+  return `<div class="genbar"><span class="lbl2">🎲 New unseen problem</span>
+    <select class="val" id="gcase" style="width:auto">${opts.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join('')}</select>
+    <button class="act" id="genBtn">Generate</button>
+    ${usingGen[tab]?`<button class="act ghost" id="genBack">↩ known problems</button><span class="hint" style="margin:0">generated — solve it with only your cheat sheet, then step through to check.</span>`:`<span class="hint" style="margin:0">a fresh problem you've never seen.</span>`}</div>`;
+}
+function wireGen(tab){
+  const gb=panel.querySelector('#genBtn'); if(gb)gb.onclick=()=>{const k=panel.querySelector('#gcase').value;const p=genProblem(tab,k);if(!p){alert('Could not build that case in a reasonable time — click Generate again.');return;}GEN[tab]=p;usingGen[tab]=true;render();};
+  const bk=panel.querySelector('#genBack'); if(bk)bk.onclick=()=>{usingGen[tab]=false;render();};
+}
+function bankbar(tab){return `<div class="bankbar"><span class="lbl">Problem</span>`+BANKS[tab].map((b,i)=>`<button class="chip" data-i="${i}" aria-pressed="${bank[tab]===i}">${b.name}</button>`).join('')+`</div>`;}
+function probHead(b){return `<div class="prob"><h3>${b.name}<span class="tag">${b.tag}</span></h3><p>${b.text}</p></div>`;}
+function sub(s){return s.replace(/([a-z])(\d+)/i,(m,a,d)=>a+d.split('').map(c=>'₀₁₂₃₄₅₆₇₈₉'[+c]).join(''));}
+function fmt(s){return s.replace(/-/g,'−').replace(/\//g,'⁄');}
+/* ---- tableau + stepper (shared by Simplex, Big-M, Custom) ---- */
+function tableauHTML(st,idx,total,r,sense){
+  const cols=st.varNames;const isPivot=st.note==='pivot';
+  let head=`<tr><th class="bv">BV</th><th>z</th>`+cols.map((c,j)=>`<th${isPivot&&j===st.enteringCol?' class="pcol"':''}>${sub(c)}</th>`).join('')+`<th>RHS</th>`+(isPivot?`<th>Ratio</th>`:``)+`</tr>`;
+  let r0=`<tr class="r0"><td class="bv">z</td><td>1</td>`+st.row0.map((v,j)=>`<td${isPivot&&j===st.enteringCol?' class="pcol"':''}>${fmt(v)}</td>`).join('')+`<td>${fmt(st.rhs0)}</td>`+(isPivot?`<td></td>`:``)+`</tr>`;
+  let body='';
+  for(let ri=0;ri<st.rows.length;ri++){
+    body+=`<tr class="${isPivot&&ri===st.pivot[0]?'prow':''}"><td class="bv">${sub(st.varNames[st.basis[ri]])}</td><td>0</td>`+
+      st.rows[ri].map((v,j)=>{const piv=isPivot&&ri===st.pivot[0]&&j===st.pivot[1];const pc=isPivot&&j===st.enteringCol&&!piv;return `<td class="${piv?'pivot':(pc?'pcol':'')}">${fmt(v)}</td>`;}).join('')+
+      `<td>${fmt(st.rhs[ri])}</td>`+(isPivot?`<td>${st.ratios[ri]?st.ratios[ri]:'—'}</td>`:``)+`</tr>`;
+  }
+  let note='';
+  if(st.note==='pivot')note=`<p class="stepnote"><b>${st.entering}</b> enters (most ${sense==='max'?'negative':'positive'} row-0 coefficient); min-ratio test → <b>${st.leaving}</b> leaves; pivot circled.</p>`;
+  else if(st.note==='optimal'){
+    if(r.status==='infeasible')note=`<p class="stepnote" style="color:var(--red)">Optimal tableau reached, but an artificial variable is still basic at a positive value → the LP is <b>INFEASIBLE</b> (z = ${fmt(r.zStr)}).</p>`;
+    else note=`<p class="stepnote" style="color:var(--green)">No ${sense==='max'?'negative':'positive'} row-0 coefficient remains → <b>OPTIMAL</b>. z = ${fmt(r.zStr)} at (${r.x.map(fmt).join(', ')}).</p>`;
+  } else if(st.note==='unbounded')note=`<p class="stepnote" style="color:var(--red)">No positive entry in the ${st.entering} column → ${st.entering} grows without bound → <b>UNBOUNDED</b>.</p>`;
+  else if(st.note==='stalled')note=`<p class="stepnote" style="color:var(--red)">Iteration limit reached (possible cycling).</p>`;
+  let rops='';
+  if(st.note==='pivot'&&st.rowops&&st.rowops.length)rops=`<pre class="build" style="margin-top:8px"><b>Row operations → next tableau</b>   (pivot = ${fmt(st.pivotEl)}, using the new R${ssub(st.pivot[0]+1)})\n${st.rowops.join('\n')}</pre>`;
+  return `<div class="tblwrap"><table class="tab-t">${head}${r0}${body}</table></div>${note}${rops}`;
+}
+function stepperMarkup(p){return `<div class="steptitle" id="${p}title"></div><div id="${p}box"></div>
+   <div class="controls"><button class="act ghost" id="${p}prev">◀ Previous</button><button class="act" id="${p}next">Next tableau ▶</button><span class="hint" id="${p}ctr" style="margin:0"></span></div>
+   <div class="row" id="${p}quizrow" style="align-items:flex-end">
+     <label class="field">Predict: entering var<input class="val" id="${p}qe" placeholder="x1"></label>
+     <label class="field">Predict: leaving var<input class="val" id="${p}ql" placeholder="s1"></label>
+     <button class="act" id="${p}qc">Check my call</button>
+     <div class="verdict" id="${p}qv" style="flex-basis:100%"></div>
+   </div>`;}
+function wireStepper(p,r,sense,bn){
+  const g=id=>panel.querySelector('#'+p+id);let i=0;
+  const build=(bn&&bn.B)||[],initSnap=bn?bn.initSnap:null,steps=r.steps,total=build.length+steps.length;
+  const tabStep=k=>steps[k-build.length];
+  const draw=()=>{
+    if(i<build.length){const b=build[i];g('title').textContent=b.t;
+      g('box').innerHTML=(b.h==='__INIT__')?tableauHTML(initSnap,0,1,r,sense):`<div class="bnarr">${b.h}</div>`;
+      g('quizrow').style.display='none';
+    }else{const st=tabStep(i);
+      g('title').textContent=st.note==='pivot'?`Iteration — tableau ${i-build.length+1}`:(st.note==='optimal'?'Optimal — read the answer':st.note==='unbounded'?'Unbounded':'Tableau');
+      g('box').innerHTML=tableauHTML(st,i-build.length,steps.length,r,sense);
+      g('quizrow').style.display=st.note==='pivot'?'flex':'none';
+    }
+    g('ctr').textContent=`Step ${i+1} of ${total}`;g('prev').disabled=i===0;g('next').disabled=i===total-1;g('qv').className='verdict';g('qe').value='';g('ql').value='';
+  };
+  draw();
+  g('next').onclick=()=>{i=Math.min(total-1,i+1);draw();};
+  g('prev').onclick=()=>{i=Math.max(0,i-1);draw();};
+  g('qc').onclick=()=>{const st=(i>=build.length)?tabStep(i):null;if(!st||st.note!=='pivot')return;const v=g('qv');const e=g('qe').value.trim().toLowerCase().replace(/\s/g,'');const l=g('ql').value.trim().toLowerCase().replace(/\s/g,'');const eOK=e===st.entering.toLowerCase(),lOK=l===st.leaving.toLowerCase();v.className='verdict '+((eOK&&lOK)?'ok':'no')+' show';v.innerHTML=(eOK&&lOK)?`Correct — <b>${st.entering}</b> enters, <b>${st.leaving}</b> leaves. Advance to see the pivot.`:`Entering ${eOK?'✓':'✗ ('+st.entering+')'} · Leaving ${lOK?'✓':'✗ ('+st.leaving+')'}. Rule (${sense}): enter the most ${sense==='max'?'negative':'positive'} row-0 coefficient; the min-ratio test picks the leaving row.`;};
+}
+/* ---- graphical (shared by Graphical tab + 2-var Custom) ---- */
+function stageLabel(s,p){const n=p.cons.length;if(s===0)return'Step 0 · axes';if(s<=n)return`Step ${s} · plot constraint ${s}`;if(s===n+1)return'Step '+(n+1)+' · shade feasible region';if(s===n+2)return'Step '+(n+2)+' · corner-point values';return'Step '+(n+3)+' · optimum';}
+function plotSVG(prob,ce,r,stage){
+  const n=prob.cons.length;const cand=[];
+  ce.cons.forEach(c=>{if(Math.abs(c.a1)>1e-9)cand.push(Math.abs(c.b/c.a1));if(Math.abs(c.a2)>1e-9)cand.push(Math.abs(c.b/c.a2));});
+  ce.pts.forEach(p=>{cand.push(p.x,p.y);});
+  const m=Math.max(...cand.filter(v=>isFinite(v)&&v>0),1)*1.18,xmax=m,ymax=m;
+  const W=460,H=380,pad=40;
+  const X=x=>pad+(x/xmax)*(W-pad-14),Y=y=>H-pad-(y/ymax)*(H-pad-14);
+  let g='';
+  for(let i=0;i<=5;i++){const gx=pad+i*(W-pad-14)/5,gy=H-pad-i*(H-pad-14)/5;g+=`<line x1="${gx}" y1="14" x2="${gx}" y2="${H-pad}" stroke="var(--grid)"/><line x1="${pad}" y1="${gy}" x2="${W-14}" y2="${gy}" stroke="var(--grid)"/>`;}
+  let axes=`<line x1="${pad}" y1="${H-pad}" x2="${W-14}" y2="${H-pad}" stroke="var(--ink)" stroke-width="1.3"/><line x1="${pad}" y1="${H-pad}" x2="${pad}" y2="12" stroke="var(--ink)" stroke-width="1.3"/><text x="${W-16}" y="${H-pad+22}" fill="var(--ink-soft)" font-size="12" text-anchor="end">x₁</text><text x="${pad-8}" y="20" fill="var(--ink-soft)" font-size="12" text-anchor="end">x₂</text>`;
+  let region='';
+  if(stage>=n+1&&ce.pts.length>=3&&r.status!=='infeasible')region=`<polygon points="${ce.pts.map(p=>`${X(p.x)},${Y(p.y)}`).join(' ')}" fill="var(--green-fill)" stroke="var(--green)" stroke-width="1.2"/>`;
+  let lines='';const cols=['var(--blue)','#7a5bb0','#b06a2f','#2f9d94','#a03f6a'];
+  for(let i=0;i<Math.min(stage,n);i++){const c=ce.cons[i];let x1,y1,x2,y2;
+    if(Math.abs(c.a2)>1e-9){x1=0;y1=c.b/c.a2;x2=xmax;y2=(c.b-c.a1*xmax)/c.a2;}else{x1=c.b/c.a1;y1=0;x2=c.b/c.a1;y2=ymax;}
+    lines+=`<line x1="${X(x1)}" y1="${Y(y1)}" x2="${X(x2)}" y2="${Y(y2)}" stroke="${cols[i%cols.length]}" stroke-width="1.8"/>`;}
+  let verts='';
+  if(stage>=n+2&&r.status!=='infeasible')ce.pts.forEach((p,i)=>{verts+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="3.4" fill="var(--ink)"/><text x="${X(p.x)+6}" y="${Y(p.y)-6}" font-size="11" fill="var(--ink-soft)" font-family="var(--mono)">${String.fromCharCode(65+i)}</text>`;});
+  let opt='';
+  if(stage>=n+3&&r.status==='optimal'&&isFinite(r.xNum[0])){const ox=X(r.xNum[0]),oy=Y(r.xNum[1]);opt=`<circle cx="${ox}" cy="${oy}" r="7" fill="none" stroke="var(--amber)" stroke-width="2.4"/><circle cx="${ox}" cy="${oy}" r="2.5" fill="var(--amber)"/><text x="${ox+10}" y="${oy+4}" font-size="12" font-family="var(--mono)" fill="var(--amber)">z=${fmt(r.zStr)}</text>`;}
+  let msg='';
+  if(stage>=n+1&&r.status==='infeasible')msg=`<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="14" fill="var(--red)" font-family="var(--mono)">no feasible region — INFEASIBLE</text>`;
+  if(stage>=n+3&&r.status==='unbounded')msg=`<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="14" fill="var(--red)" font-family="var(--mono)">region unbounded — z → ∞</text>`;
+  return `<svg class="plot" viewBox="0 0 ${W} ${H}" role="img" aria-label="feasible region plot">${g}${region}${lines}${axes}${verts}${opt}${msg}</svg>`;
+}
+function cornerTable(ce,r){
+  if(r.status==='infeasible')return `<div class="verdict info show">No feasible corner points — the constraints do not overlap.</div>`;
+  let rows=ce.pts.map((p,i)=>{const isOpt=r.status==='optimal'&&Math.abs(p.x-r.xNum[0])<1e-3&&Math.abs(p.y-r.xNum[1])<1e-3;return `<tr${isOpt?' class="prow"':''}><td class="bv">${String.fromCharCode(65+i)}</td><td>${p.x.toFixed(2)}</td><td>${p.y.toFixed(2)}</td><td>${p.z.toFixed(2)}${isOpt?'  ◄':''}</td></tr>`;}).join('');
+  return `<div class="tblwrap"><table class="tab-t"><tr><th class="bv">Corner</th><th>x₁</th><th>x₂</th><th>z</th></tr>${rows}</table></div><p class="hint">The optimum of any LP sits at a corner point (Fundamental Theorem of LP).</p>`;
+}
+function graphMarkup(p){return `<div class="row">
+   <div class="col" style="flex:1 1 420px"><div id="${p}plot"></div>
+     <div class="legend"><span><i class="sw" style="background:var(--blue)"></i>constraint</span><span><i class="sw" style="background:var(--green-fill);border:1px solid var(--green)"></i>feasible region</span><span><i class="sw" style="background:var(--amber);border-radius:50%"></i>optimum</span></div>
+     <div class="controls"><button class="act ghost" id="${p}prev">◀ Back</button><button class="act" id="${p}next">Next step ▶</button><span class="hint" id="${p}stage" style="margin:0"></span></div>
+   </div>
+   <div class="col">
+     <div class="controls" style="align-items:flex-end"><label class="field">Your x₁<input class="val" id="${p}x1"></label><label class="field">Your x₂<input class="val" id="${p}x2"></label><label class="field">Your z<input class="val" id="${p}z"></label><button class="act" id="${p}chk">Check</button></div>
+     <div class="verdict" id="${p}vd"></div><div id="${p}tbl"></div>
+   </div></div>`;}
+function wireGraph(p,prob){
+  const r=solve(prob),ce=cornerEnum(prob);const g=id=>panel.querySelector('#'+p+id);
+  let stage=0;const maxStage=prob.cons.length+3;
+  const draw=()=>{g('plot').innerHTML=plotSVG(prob,ce,r,stage);g('stage').textContent=stageLabel(stage,prob);g('tbl').innerHTML=(stage>=prob.cons.length+2)?cornerTable(ce,r):'';};
+  draw();
+  g('next').onclick=()=>{stage=Math.min(maxStage,stage+1);draw();};
+  g('prev').onclick=()=>{stage=Math.max(0,stage-1);draw();};
+  g('chk').onclick=()=>{const v=g('vd');
+    if(r.status!=='optimal'){v.className='verdict info show';v.textContent=r.status==='unbounded'?'This LP is UNBOUNDED — the objective improves without limit.':'This LP is INFEASIBLE — the constraints share no region.';return;}
+    const x1=+g('x1').value,x2=+g('x2').value,z=+g('z').value;
+    const ok=Math.abs(x1-r.xNum[0])<1e-3&&Math.abs(x2-r.xNum[1])<1e-3&&Math.abs(z-r.zNum)<1e-3;
+    v.className='verdict '+(ok?'ok':'no')+' show';v.textContent=ok?`Correct — optimum (${r.x.map(fmt).join(', ')}), z = ${fmt(r.zStr)}.`:`Not yet. Solver optimum is (${r.x.map(fmt).join(', ')}), z = ${fmt(r.zStr)}. Reveal the corner table with Next.`;};
+}
+/* ===================== RENDERERS ===================== */
+function render(){
+  document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.tab===cur));
+  if(cur==='form')renderForm();
+  else if(cur==='graph')renderGraph();
+  else if(cur==='custom')renderCustom();
+  else renderStepperTab(cur);
+  panel.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{bank[cur]=+c.dataset.i;usingGen[cur]=false;render();});
+}
+function renderForm(){
+  const tab='form';const b=usingGen[tab]&&GEN[tab]?GEN[tab]:BANKS.form[bank.form];
+  panel.innerHTML=bankbar('form')+genBar('form')+probHead(b)+
+    `<div class="row"><div class="col"><label class="field">Your model (objective + constraints)<textarea class="val" id="ta" placeholder="max z = ...&#10;s.t. ...&#10;     x1, x2 >= 0"></textarea></label>
+      <div class="controls"><button class="act" id="reveal">Reveal model</button>`+(b.prob?`<button class="act ghost" id="solveIt">Solve it (numeric answer)</button>`:``)+`</div>
+      <div class="verdict info" id="modelOut"></div></div></div>
+    <p class="hint">Write your formulation first, then reveal to compare variable definitions, objective sense, and every constraint.</p>`;
+  panel.querySelector('#reveal').onclick=()=>{const o=panel.querySelector('#modelOut');o.textContent=b.model;o.className='verdict info show';o.style.fontFamily='var(--mono)';o.style.whiteSpace='pre-wrap';};
+  wireGen('form');
+  if(b.prob)panel.querySelector('#solveIt').onclick=()=>{const r=solve(b.prob);const o=panel.querySelector('#modelOut');o.className='verdict ok show';o.style.fontFamily='var(--mono)';o.style.whiteSpace='pre-wrap';o.textContent=`Optimal ${b.prob.sense}  →  z = ${fmt(r.zStr)}   at  (${r.x.map(fmt).join(', ')})`;};
+}
+function renderGraph(){const tab='graph';const b=usingGen[tab]&&GEN[tab]?GEN[tab]:BANKS.graph[bank.graph];panel.innerHTML=bankbar('graph')+genBar('graph')+probHead(b)+graphMarkup('g');wireGen('graph');wireGraph('g',b.prob);}
+function renderStepperTab(tab){const b=usingGen[tab]&&GEN[tab]?GEN[tab]:BANKS[tab][bank[tab]];const r=solve(b.prob);const bn=buildNarration(b.prob);panel.innerHTML=bankbar(tab)+genBar(tab)+probHead(b)+stepperMarkup('s');wireGen(tab);wireStepper('s',r,b.prob.sense,bn);}
+/* ---- Custom problem builder ---- */
+function renderCustom(){
+  panel.innerHTML=`<div class="prob"><h3>Build your own LP<span class="tag">solver</span></h3><p>Enter any LP — like the console solvers in your <span class="kbd">code</span> folder, but on screen. Coefficients accept integers, decimals, or fractions (<span class="kbd">3</span>, <span class="kbd">2.5</span>, <span class="kbd">3/2</span>, <span class="kbd">-4</span>). 2-variable problems also get the graphical view.</p></div>
+   <div class="controls">
+     <label class="field">Optimize<select class="val" id="cSense" style="width:auto"><option value="max">maximize</option><option value="min">minimize</option></select></label>
+     <label class="field">Variables<input class="val" id="cNV" type="number" min="1" max="5" value="2" style="width:70px"></label>
+     <label class="field">Constraints<input class="val" id="cNC" type="number" min="1" max="6" value="2" style="width:70px"></label>
+     <button class="act" id="cBuild">Build grid</button>
+   </div>
+   <div id="cGrid"></div>`;
+  panel.querySelector('#cBuild').onclick=buildGrid;
+  panel.querySelector('#cNV').onchange=buildGrid;panel.querySelector('#cNC').onchange=buildGrid;
+  buildGrid();
+}
+function buildGrid(){
+  const nv=Math.max(1,Math.min(5,+panel.querySelector('#cNV').value||2));
+  const nc=Math.max(1,Math.min(6,+panel.querySelector('#cNC').value||2));
+  let obj=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:12px"><b style="font-family:var(--sans);min-width:82px">z =</b>`;
+  for(let j=0;j<nv;j++)obj+=`<input class="val" id="co${j}" placeholder="0" style="width:62px"><span style="opacity:.7">${sub('x'+(j+1))}</span>${j<nv-1?'<span>+</span>':''}`;
+  obj+=`</div>`;
+  let cons='';
+  for(let i=0;i<nc;i++){cons+=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px"><b style="font-family:var(--mono);color:var(--ink-soft);min-width:82px">Constraint ${i+1}</b>`;for(let j=0;j<nv;j++)cons+=`<input class="val" id="ca${i}_${j}" placeholder="0" style="width:58px"><span style="opacity:.7">${sub('x'+(j+1))}</span>${j<nv-1?'<span>+</span>':''}`;cons+=`<select class="val" id="cs${i}" style="width:auto"><option value="<=">≤</option><option value=">=">≥</option><option value="=">=</option></select><input class="val" id="cb${i}" placeholder="0" style="width:64px"></div>`;}
+  panel.querySelector('#cGrid').innerHTML=obj+cons+`<div class="controls"><button class="act" id="cSolve">Solve &amp; step ▶</button><span class="hint" id="cMethod" style="margin:0"></span></div><div class="verdict" id="cErr"></div><div id="cResult"></div>`;
+  panel.querySelector('#cSolve').onclick=()=>solveCustom(nv,nc);
+}
+function solveCustom(nv,nc){
+  const err=panel.querySelector('#cErr');err.className='verdict';
+  const val=id=>{const t=(panel.querySelector('#'+id).value||'').trim();return t===''?'0':t;};
+  try{
+    const sense=panel.querySelector('#cSense').value;
+    const c=[];for(let j=0;j<nv;j++)c.push(F.w(val('co'+j)).toString());
+    if(c.every(v=>v==='0'))throw new Error("Objective is all zeros.");
+    const cons=[];let bigm=false;
+    for(let i=0;i<nc;i++){const a=[];for(let j=0;j<nv;j++)a.push(F.w(val('ca'+i+'_'+j)).toString());const sv=panel.querySelector('#cs'+i).value;if(sv!=='<=')bigm=true;cons.push({a,sense:sv,b:F.w(val('cb'+i)).toString()});}
+    const prob={sense,c,cons};const r=solve(prob);
+    panel.querySelector('#cMethod').textContent=(bigm?'Big-M method (has ≥ or =)':'Ordinary simplex (all ≤)')+` · ${r.steps.length} tableaus · ${r.status.toUpperCase()}`;
+    let html='';if(nv===2)html+=graphMarkup('cg')+`<hr class="sep">`;html+=stepperMarkup('c');
+    panel.querySelector('#cResult').innerHTML=html;
+    if(nv===2)wireGraph('cg',prob);
+    wireStepper('c',r,sense);
+  }catch(e){err.className='verdict no show';err.textContent='Check your inputs — every box needs a number (integer, decimal, or fraction like 3/2). '+e.message;}
+}
+/* ---- tabs + theme ---- */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{cur=t.dataset.tab;render();});
+const root=document.documentElement;
+document.getElementById('themeBtn').onclick=()=>{const isDark=root.getAttribute('data-theme')==='dark'||(!root.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme:dark)').matches);root.setAttribute('data-theme',isDark?'light':'dark');};
+render();
+</script>
+
+</body>
+</html>

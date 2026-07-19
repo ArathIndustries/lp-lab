@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LP Cheat Sheet (1 side)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<style>
+  @page{ size:letter; margin:0.2in; }
+  html,body{ margin:0; padding:0; background:#fff; color:#111; }
+  body{ font:11.5pt/1.28 "Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .sheet{ zoom:0.47; width:17in; padding:0.1in; column-count:3; column-gap:0.24in; }
+  h1{ column-span:all; text-align:center; font-size:15pt; margin:0 0 5px;
+      padding-bottom:3px; border-bottom:2px solid #111; }
+  h1 small{ font-weight:400; font-size:10.5pt; color:#333; }
+  h2{ font-size:12pt; margin:9px 0 4px; background:#222; color:#fff;
+      padding:2px 6px; border-radius:3px; break-after:avoid; }
+  h3{ font-size:10.5pt; margin:7px 0 3px; border-bottom:1px solid #999;
+      break-after:avoid; }
+  p{ margin:3px 0; }
+  ol.st{ margin:3px 0 3px 0; padding-left:16px; }
+  ol.st>li{ margin:2px 0; }
+  ol.st>li .p{ display:block; color:#333; font-size:10pt; padding-left:2px; }
+  ul.b{ margin:3px 0; padding-left:14px; list-style:square; }
+  ul.b>li{ margin:1.5px 0; }
+  .f,.tip,.warn{ padding:3px 6px; margin:4px 0; border-radius:3px; font-size:10.5pt; }
+  .f{ background:#eef2ff; border-left:3px solid #3366cc; }
+  .tip{ background:#efffef; border-left:3px solid #339933; }
+  .warn{ background:#fff0f0; border-left:3px solid #cc3333; }
+  .vd{ color:#555; font-size:9.5pt; }
+  b.k{ color:#0b3; }
+  table{ border-collapse:collapse; width:100%; margin:4px 0; font-size:9.7pt;
+         break-inside:avoid; }
+  th,td{ border:1px solid #999; padding:1.5px 4px; text-align:left; vertical-align:top; }
+  th{ background:#e0e0e0; font-weight:700; }
+  td.k{ white-space:nowrap; font-weight:600; }
+  .katex{ font-size:1em; }
+  .katex-display{ margin:2px 0 !important; }
+  /* avoid the multi-column whitespace bug: no break-inside:avoid on text blocks */
+  @media print{
+    .f{ background:#f0f0f0; border-color:#555; }
+    .tip{ background:#f0f0f0; border-color:#555; }
+    .warn{ background:#f0f0f0; border-color:#555; }
+    th{ background:#ddd; }
+    a{ color:#111; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+<h1>LP Cheat Sheet <small>Formulation · Graphical · Simplex · Big-M — Winston Row-0 form</small></h1>
+
+<h2>Setup &amp; Standard Form</h2>
+<table>
+  <tr><th>Constraint</th><th>Add</th><th>Starts basic</th></tr>
+  <tr><td class="k">\(\le b\)</td><td>\(+\,s_i\) slack</td><td>\(s_i\)</td></tr>
+  <tr><td class="k">\(\ge b\)</td><td>\(-\,e_i+a_i\)</td><td>\(a_i\)</td></tr>
+  <tr><td class="k">\(= b\)</td><td>\(+\,a_i\)</td><td>\(a_i\)</td></tr>
+</table>
+<ul class="b">
+  <li>Row 0 (max): \(z-c_1x_1-c_2x_2-\dots-c_nx_n=0\) — objective coeffs <b>flip sign</b> when moved left of "=".</li>
+  <li>Any \(b_i&lt;0\) → multiply that whole row by \(-1\) first (this flips its inequality).</li>
+  <li><b>Basic</b> variable = currently in the solution (value read off its row's RHS). <b>Nonbasic</b> = temporarily set to 0. You always have exactly (# constraints) basic variables.</li>
+  <li><b>bfs</b> = <b>basic feasible solution</b>: a choice of which variables are basic where <b>all</b> variables come out \(\ge0\). Geometrically a bfs <b>is a corner</b> of the feasible region — simplex hops from one bfs to a better adjacent one until it's optimal.</li>
+  <li>\(s_i\) = unused resource (slack) · \(e_i\) = amount above the minimum (surplus) · \(a_i\) = artificial: a fake variable only there to give a starting point, penalized out by \(M\).</li>
+  <li>Assumptions: Proportionality · Additivity · Divisibility (fractions allowed) · Certainty.</li>
+</ul>
+<div class="f"><b>Pick the method first.</b> Exactly 2 variables → <b>graphical</b> is fastest. Otherwise all constraints \(\le\) (a max) → <b>ordinary simplex</b> (slacks give a free starting basis). Any \(\ge\) or \(=\) present → <b>Big-M</b> (you need artificials to start).</div>
+
+<h2>1 · Formulation</h2>
+<ol class="st">
+  <li><b>Decision variables</b><span class="p">what you get to choose. \(x_i=\) # of ___ per [unit &amp; period]. Define each precisely — a vague variable is the #1 way to lose points.</span></li>
+  <li><b>Objective</b><span class="p">Max \(z\) (profit/revenue) or Min \(z\)/\(w\) (cost) \(=\sum c_ix_i\); each \(c_i\) = value gained or spent per unit of \(x_i\).</span></li>
+  <li><b>Constraints</b> (one per limit; label each)<span class="p">put all variable terms on the left, the number on the right. Sense comes from the wording (box below).</span></li>
+  <li><b>Sign restrictions</b><span class="p">\(x_i\ge 0\) — you can't make a negative amount.</span></li>
+</ol>
+<div class="f"><b>Word → constraint sense.</b> "at most / no more than / available / capacity / budget" → \(\le\) &nbsp;·&nbsp; "at least / minimum / must supply / required" → \(\ge\) &nbsp;·&nbsp; "exactly / must equal / all of it is used" → \(=\).</div>
+<h3>Type skeletons <span class="vd">(read each: vars → objective → constraint pattern)</span></h3>
+
+<p style="margin:4px 0 1px"><b>Product-mix — MAX profit.</b> <span class="vd">\(x_i=\) units of product \(i\) to make.</span></p>
+<ul class="b">
+  <li><b>Obj:</b> Max \(z=\sum(\text{profit per unit})\,x_i\).</li>
+  <li><b>One \(\le\) per shared resource:</b> \(\sum(\text{amount used per unit})\,x_i\le\) total available.</li>
+  <li><b>Demand cap</b> (only if the problem states a most-you-can-sell/allow): write \(x_i\le D_i\) as its own \(\le\) constraint — nothing special, it just caps that one variable. In the answer it's either <b>binding</b> (you make exactly \(D_i\)) or has slack (making more wasn't worth it).</li>
+</ul>
+
+<p style="margin:4px 0 1px"><b>Diet / blend — MIN cost.</b> <span class="vd">\(x_i=\) amount of ingredient \(i\) used.</span></p>
+<ul class="b">
+  <li><b>Obj:</b> Min \(w=\sum(\text{cost per unit})\,x_i\).</li>
+  <li><b>One \(\ge\) per requirement:</b> \(\sum(\text{nutrient per unit})\,x_i\ge\) minimum needed.</li>
+</ul>
+
+<p style="margin:4px 0 1px"><b>Multi-period — MIN cost.</b> <span class="vd">You must meet a known demand each period; you choose how much to make each period and carry any leftovers forward as inventory.</span></p>
+<ul class="b">
+  <li><b>Variables, one set per period</b> \(t=1,2,\dots\): &nbsp;\(x_t\) = number of units made at regular pay; &nbsp;\(y_t\) = number of units made at overtime pay; &nbsp;\(i_t\) = inventory (units left in stock at the <b>end</b> of period \(t\)); &nbsp;\(d_t\) = demand due in \(t\) (given).</li>
+  <li><b>Objective:</b> Min \(z=\sum_t\big(\text{unit cost}\cdot x_t+\text{OT cost}\cdot y_t+\text{holding cost}\cdot i_t\big)\).</li>
+  <li><b>Balance — one "\(=\)" per period:</b> \(i_t=i_{t-1}+x_t+y_t-d_t\). &nbsp;<span class="vd">In words: end-of-period stock = last period's leftover + what you made this period − what you shipped this period.</span></li>
+  <li><b>The chaining is the whole trick:</b> each period's <b>starting</b> stock \(i_{t-1}\) <b>is</b> the previous period's ending stock — that link is what ties the periods into one model.</li>
+  <li><b>Anchor &amp; limits:</b> \(i_0\) = starting inventory (given, often 0); &nbsp;\(i_t\ge0\) means demand must be met on time (no backorders); &nbsp;\(x_t\le\) capacity if production is capped.</li>
+</ul>
+
+<p style="margin:6px 0 1px"><b>Scheduling / staffing — MIN workforce.</b> <span class="vd">"days-off" type: each worker works 5 consecutive days then gets 2 off; find the fewest workers that cover each day's staffing need.</span></p>
+<ul class="b">
+  <li><b>Variables:</b> \(x_i\) = number of workers who <b>start</b> their week on day \(i\) (\(i=\)Mon…Sun). <span class="vd">Careful: it's workers who <b>begin</b> that day, not workers present that day.</span></li>
+  <li><b>Objective:</b> Min \(z=x_1+x_2+\dots+x_7\) (total workers hired).</li>
+  <li><b>Coverage — one \(\ge\) per day:</b> (workers whose 5-day shift covers that day) \(\ge\) staff needed. A worker starting day \(i\) works days \(i,i{+}1,\dots,i{+}4\) (wrapping the week), so each day is staffed by <b>that day's starter + the 4 previous days' starters</b>.</li>
+  <li>\(x_i\ge0\) (whole workers, but solve as LP).</li>
+</ul>
+<div class="tip"><b>Scheduling vs multi-period — don't confuse them:</b> scheduling uses <b>coverage \(\ge\)</b> constraints (sum the shifts that span a day); multi-period uses a <b>balance \(=\)</b> constraint (stock carried period to period).</div>
+
+<h2>2 · Graphical (2 vars)</h2>
+<ol class="st">
+  <li><b>Constraint → line</b><span class="p">plot by intercepts: \(x_1{=}0\!\to\!x_2\)-int, \(x_2{=}0\!\to\!x_1\)-int.</span></li>
+  <li><b>Shade feasible side</b><span class="p">sub \((0,0)\): TRUE → origin side, FALSE → far side; region = overlap (+ \(x\ge0\)).</span></li>
+  <li><b>Find corners</b><span class="p">axis = first binding line on that axis; interior = solve the two lines' \(2\times2\) by elimination; keep only those meeting <b>all</b> constraints.</span></li>
+  <li><b>Evaluate \(z\) at each corner</b><span class="p">max = largest, min = smallest.</span></li>
+</ol>
+<p class="vd"><b>Alt (isoprofit):</b> slide obj line — max away from O, min toward O; tangent vertex = optimum.</p>
+<table>
+  <tr><th>Case</th><th>Signature</th></tr>
+  <tr><td class="k">Unique</td><td>one corner best</td></tr>
+  <tr><td class="k">Alt optima</td><td>2 corners tie; obj ∥ binding edge (∞ on segment)</td></tr>
+  <tr><td class="k">Infeasible</td><td>region empty (constraints only, not obj)</td></tr>
+  <tr><td class="k">Unbounded</td><td>region open toward improving dir (max only)</td></tr>
+</table>
+<p class="vd"><b>Binding</b> = LHS=RHS at the optimum (resource used up) · <b>Non-binding</b> = slack left · <b>Redundant</b> = line never touches the region.</p>
+<div class="tip"><b>What you write as the answer:</b> the winning corner's \((x_1,x_2)\) <b>and</b> its \(z\). &nbsp;Alt optima → give both corners and "every point between them." &nbsp;Infeasible → "no feasible solution." &nbsp;Unbounded → "\(z\) grows without bound; no finite optimum."</div>
+
+<h2>3 · Simplex (all \(\le\), max)</h2>
+<p class="vd"><b>Standard form</b> = all constraints are equations, all vars \(\ge0\). <b>Basic</b> vars = "active" (read values off the RHS); <b>nonbasic</b> vars = temporarily set to 0. Slacks form an identity matrix → the initial basis.</p>
+<ol class="st">
+  <li><b>Convert the LP to standard form</b><span class="p">add a slack \(s_i\) to each \(\le\). Row 0: \(z-c_1x_1-c_2x_2-\dots-c_nx_n=0\).</span></li>
+  <li><b>Obtain a starting bfs</b><span class="p">decision vars (nonbasic) \(=0\); slacks (basic) \(=\) their RHS; \(z=0\).</span></li>
+  <li><b>Is the bfs optimal? If yes, STOP.</b><span class="p">optimal when <b>every nonbasic variable has a nonnegative coefficient in Row 0</b> (max). Any negative Row-0 coefficient → not optimal.</span></li>
+  <li><b>If not optimal, find a better bfs</b><span class="p">choose one nonbasic var to <b>enter</b> the basis and one basic var to <b>leave</b>. Entering = variable that increases \(z\) fastest = most <b>negative</b> Row-0 coefficient. Leaving = ratio test (box); that row is the <b>pivot equation</b>. Do the row operations so the new basic values can be read off.</span></li>
+  <li><b>Go back to Step 3.</b></li>
+</ol>
+<div class="f"><b>Ratio test (leaving variable):</b> divide each row's RHS by its entry in the entering column, <b>using only positive entries</b>. The <b>smallest ratio</b> gives the leaving variable — it is the largest the entering variable can grow while keeping every basic variable \(\ge0\).</div>
+<p class="vd"><b>Minimization:</b> enter the most <b>positive</b> Row-0 coefficient; optimal when every Row-0 coefficient is \(\le0\). (Or solve \(\max(-z)\), then \(\min z=-[\max(-z)]\).)</p>
+<div class="tip"><b>Read the answer off the final tableau:</b> each basic variable = its RHS; every nonbasic variable = 0; \(z\) = Row 0's RHS. Slack \(s_i=0\) → that constraint is binding; \(s_i&gt;0\) → that much unused.</div>
+<p class="vd"><b>Snags:</b> tie for most-negative → pick either · ratio-test tie → degeneracy (a basic var \(=0\)) · no positive entry in the entering column → unbounded.</p>
+
+<h2>4 · Big-M (any \(\ge\) or \(=\))</h2>
+<p class="vd">Used when there is no obvious starting bfs (a \(\ge\) or \(=\) constraint). Artificial variables give a start; the penalty \(M\) = a very large positive number forces them back to 0.</p>
+<table>
+  <tr><th>Constraint</th><th>Variable added</th></tr>
+  <tr><td class="k">\(\le\)</td><td>slack \((+s)\)</td></tr>
+  <tr><td class="k">\(\ge\)</td><td>surplus \((-e)\) <b>and</b> artificial \((+a)\)</td></tr>
+  <tr><td class="k">\(=\)</td><td>artificial \((+a)\)</td></tr>
+</table>
+<ol class="st">
+  <li><b>Step 1 — Fix RHS</b><span class="p">if any RHS \(&lt;0\), multiply that constraint by \(-1\) (reverse the inequality).</span></li>
+  <li><b>Step 2 — Convert to equations</b><span class="p">\(\le\) add slack · \(\ge\) subtract surplus · \(=\) nothing yet.</span></li>
+  <li><b>Step 3 — Add artificials</b><span class="p">\(+a\) to every \(\ge\) and every \(=\) constraint.</span></li>
+  <li><b>Step 4 — Modify the objective</b><span class="p">
+     Max: \(Z=(\text{orig})-Ma_1-Ma_2-\cdots\) → canonical \(Z-c_1x_1-c_2x_2+Ma_1+Ma_2=0\).<br>
+     Min: \(Z=(\text{orig})+Ma_1+Ma_2+\cdots\) → canonical \(z-c_1x_1-c_2x_2-Ma_1-Ma_2=0\).</span></li>
+  <li><b>Step 5 — Simplex; first eliminate artificials from Row 0</b><span class="p">they start basic, so before pivoting: New Row 0 = Row 0 \(+M\)(each artificial's row) for a min (subtract for a max). Coefficients become symbolic in \(M\) (a number plus a multiple of \(M\)); Row-0's RHS becomes the starting \(z\). Then run ordinary simplex carrying \(M\).</span></li>
+</ol>
+<table>
+  <tr><th>Problem</th><th>Entering variable</th><th>Stop when</th></tr>
+  <tr><td class="k">Max</td><td>most negative Row-0 coeff</td><td>no negative coeffs remain</td></tr>
+  <tr><td class="k">Min</td><td>most positive Row-0 coeff</td><td>no positive coeffs remain</td></tr>
+</table>
+<div class="tip"><b>Final decision — check BOTH conditions:</b> (1) <b>Optimality</b> reached (max: no negative Row-0 coeff · min: no positive); (2) <b>Feasibility</b> — all artificials \(=0\) → LP feasible, optimal found; any artificial \(&gt;0\) → the original LP has <b>no feasible solution</b>.</div>
+<p class="vd"><b>Two-Phase</b> (alternative to Big-M): Phase I minimize \(W=\sum a_i\); if \(W=0\) a feasible start exists → drop artificials, Phase II on the real objective.</p>
+
+<h2>5 · Diagnostics</h2>
+<table>
+  <tr><th>Result</th><th>Tell-tale in tableau / region</th></tr>
+  <tr><td class="k">Optimal</td><td>max: Row 0 all \(\ge0\) · min: all \(\le0\)</td></tr>
+  <tr><td class="k">Unbounded</td><td>no positive entry in entering column (max)</td></tr>
+  <tr><td class="k">Infeasible</td><td>artificial basic at \(&gt;0\) when optimal-form reached</td></tr>
+  <tr><td class="k">Alt optima</td><td>nonbasic Row-0 coeff \(=0\) at optimum</td></tr>
+  <tr><td class="k">Degenerate</td><td>a basic variable \(=0\) (ratio-test tie)</td></tr>
+</table>
+<p class="vd">Row 0 max: \(z-c_1x_1-\dots=0\) · convert \(\le\!+s\), \(\ge\!-e+a\), \(=\!+a\) · Big-M: max \(-Ma\), min \(+Ma\) · divisibility → fractional answers OK.</p>
+
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  renderMathInElement(document.body, {
+    delimiters: [
+      {left:"\\[", right:"\\]", display:true},
+      {left:"\\(", right:"\\)", display:false}
+    ],
+    throwOnError:false
+  });
+});
+</script>
+</body>
+</html>
