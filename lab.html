@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LP Lab — interactive simplex & Big-M workbench</title>
 <link rel="stylesheet" href="forged.css">
+<link rel="stylesheet" href="step-player.css">
 </head>
 <body class="fk-page">
 <style>
@@ -127,6 +128,7 @@ body.fk-page{background-color:var(--paper);color:var(--ink);font-family:var(--sa
   <button class="tab" role="tab" data-tab="graph" aria-selected="false"><span class="n">2</span> Graphical</button>
   <button class="tab" role="tab" data-tab="simplex" aria-selected="false"><span class="n">3</span> Simplex</button>
   <button class="tab" role="tab" data-tab="bigm" aria-selected="false"><span class="n">4</span> Big-M</button>
+  <button class="tab" role="tab" data-tab="walk" aria-selected="false"><span class="n">5</span> Walkthrough</button>
   <button class="tab" role="tab" data-tab="custom" aria-selected="false"><span class="n">＋</span> Your problem</button>
 </div>
 
@@ -138,6 +140,7 @@ body.fk-page{background-color:var(--paper);color:var(--ink);font-family:var(--sa
   <a href="https://www.arath.site">A Forged Tool &middot; &copy; Arath Industries</a>
 </footer>
 
+<script src="step-player.js"></script>
 <script>
 /* ===================== VERIFIED SOLVER (exact-fraction row-0 Big-M) ===================== */
 function gcd(a,b){a=a<0n?-a:a;b=b<0n?-b:b;while(b){[a,b]=[b,a%b];}return a||1n;}
@@ -386,9 +389,11 @@ function wireGraph(p,prob){
 }
 /* ===================== RENDERERS ===================== */
 function render(){
+  if(walkPlayer){walkPlayer.destroy();walkPlayer=null;}
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.tab===cur));
   if(cur==='form')renderForm();
   else if(cur==='graph')renderGraph();
+  else if(cur==='walk')renderWalk();
   else if(cur==='custom')renderCustom();
   else renderStepperTab(cur);
   panel.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{bank[cur]=+c.dataset.i;render();});
@@ -446,6 +451,202 @@ function solveCustom(nv,nc){
     if(nv===2)wireGraph('cg',prob);
     wireStepper('c',r,sense);
   }catch(e){err.className='verdict no show';err.textContent='Check your inputs — every box needs a number (integer, decimal, or fraction like 3/2). '+e.message;}
+}
+/* ===================== WALKTHROUGH (FkStepPlayer integration) =====================
+   Additive: drives the SAME standardize/chooseEntering/ratioTest/pivot primitives as
+   solve(), captures per-iteration detail, and emits a deterministic StepScript for
+   the shared step player (see forged-kit PLAYER.md). No existing mode is touched.
+   Pure section: everything from here to renderWalk() is DOM-free (node-testable). */
+BANKS.walk=[
+  ...BANKS.simplex.map((b,i)=>Object.assign({},b,{src:'simplex',srcIdx:i})),
+  ...BANKS.bigm.map((b,i)=>Object.assign({},b,{src:'bigm',srcIdx:i})),
+];
+bank.walk=0;
+let walkPlayer=null;
+/* Replays the solver loop with the same primitives as solve(), recording per-iteration
+   detail (candidates, ratios, pivot value, column entries) that snap() discards. */
+function solveTrace(prob){
+  const t=standardize(prob);
+  const trace={initial:snap(t,{}),sense:t.sense,varKinds:[...t.varKinds],iters:[],status:'optimal'};
+  let iter=0;
+  while(true){
+    iter++;if(iter>80){trace.status='stalled';break;}
+    const e=chooseEntering(t);
+    if(e===null)break;
+    const cands=[];
+    for(let j=0;j<t.row0.length;j++){const v=t.row0[j];if((t.sense==='max'&&v.cmp(0)<0)||(t.sense==='min'&&v.cmp(0)>0))cands.push({j,name:t.varNames[j],val:v.toString()});}
+    const {row,ratios}=ratioTest(t,e);
+    const rec={pre:snap(t,{}),entering:e,enteringName:t.varNames[e],enteringVal:t.row0[e].toString(),cands,ratios};
+    if(row===null){rec.unbounded=true;trace.iters.push(rec);trace.status='unbounded';break;}
+    rec.leavingRow=row;rec.leavingName=t.varNames[t.basis[row]];
+    rec.pivotVal=t.rows[row][e].toString();
+    rec.colVals=t.rows.map(rr=>rr[e].toString());
+    pivot(t,row,e);
+    rec.post=snap(t,{});
+    trace.iters.push(rec);
+  }
+  const artSet=new Set(t.varNames.map((_,j)=>j).filter(j=>t.varKinds[j]==='artificial'));
+  trace.artBasic=[];
+  for(let i=0;i<t.basis.length;i++){if(artSet.has(t.basis[i])&&t.rhs[i].cmp(0)>0){trace.status='infeasible';trace.artBasic.push({name:t.varNames[t.basis[i]],val:t.rhs[i].toString()});}}
+  return trace;
+}
+/* Tableau renderer for the walkthrough canvas. Same visual classes as tableauHTML,
+   plus data-fk-target addressing: row-r (r=0 is the z row), cell-r-c / cell-r-rhs,
+   col-c / col-rhs on the header, and "tableau" on the wrapper. */
+function walkTableauHTML(st){
+  const cols=st.varNames;
+  let head=`<tr><th class="bv">BV</th><th>z</th>`+cols.map((c,j)=>`<th data-fk-target="col-${j}">${sub(c)}</th>`).join('')+`<th data-fk-target="col-rhs">RHS</th></tr>`;
+  let r0=`<tr class="r0" data-fk-target="row-0"><td class="bv">z</td><td>1</td>`+st.row0.map((v,j)=>`<td data-fk-target="cell-0-${j}" data-col="${j}">${fmt(v)}</td>`).join('')+`<td data-fk-target="cell-0-rhs">${fmt(st.rhs0)}</td></tr>`;
+  let body='';
+  for(let ri=0;ri<st.rows.length;ri++){
+    body+=`<tr data-fk-target="row-${ri+1}"><td class="bv">${sub(st.varNames[st.basis[ri]])}</td><td>0</td>`+
+      st.rows[ri].map((v,j)=>`<td data-fk-target="cell-${ri+1}-${j}" data-col="${j}">${fmt(v)}</td>`).join('')+
+      `<td data-fk-target="cell-${ri+1}-rhs">${fmt(st.rhs[ri])}</td></tr>`;
+  }
+  return `<div class="tblwrap" data-fk-target="tableau"><table class="tab-t">${head}${r0}${body}</table></div>`;
+}
+/* Deterministic StepScript builder — same problem entry in, byte-identical script out.
+   No Date, no Math.random, no DOM. entry = BANKS.walk[i]. */
+function buildStepScript(entry){
+  const prob=entry.prob,sense=prob.sense;
+  const r=solve(prob),tr=solveTrace(prob);
+  const hasArt=tr.varKinds.includes('artificial');
+  const twoVar=prob.c.length===2;
+  const rule=sense==='max'?'most negative':'most positive';
+  const nRows=tr.initial.rows.length;
+  const colHl=(c,kind)=>{const a=[{target:`col-${c}`,kind},{target:`cell-0-${c}`,kind}];for(let i=1;i<=nRows;i++)a.push({target:`cell-${i}-${c}`,kind});return a;};
+  const vertex=st=>{if(!twoVar)return null;const v=[0,0];st.basis.forEach((c,i)=>{if(c===0)v[0]=F.w(st.rhs[i]).num();else if(c===1)v[1]=F.w(st.rhs[i]).num();});return v;};
+  const pay=st=>({tab:st,vertex:vertex(st)});
+  const steps=[];
+  const kinds=tr.varKinds,names=tr.initial.varNames;
+  const list=k=>names.filter((n,j)=>kinds[j]===k).map(n=>`<b>${sub(n)}</b>`).join(', ');
+  const sl=list('slack'),su=list('surplus'),ar=list('artificial');
+  const parts=[];if(sl)parts.push(`slack ${sl}`);if(su)parts.push(`surplus ${su}`);if(ar)parts.push(`artificial ${ar}`);
+  let setup=`<p>Objective: <b>${sense==='max'?'maximize'
+    :'minimize'}</b>. Standard form adds ${parts.join('; ')}.</p>`;
+  if(hasArt)setup+=`<p><b>Big-M setup:</b> each artificial variable carries objective coefficient ${sense==='max'?'−M':'+M'}, where M stands for a penalty larger than any ordinary number. The artificials start in the basis, so each has already been eliminated from row 0 — that elimination is where the symbolic M terms in row 0 come from.</p>`;
+  else setup+=`<p>Every constraint is ≤ with a nonnegative right-hand side, so the slack variables form the starting basis and row 0 is simply the negated objective row.</p>`;
+  setup+=`<p>Stop rule: the tableau is optimal when row 0 contains no ${sense==='max'?'negative':'positive'} coefficient.</p>`;
+  steps.push({id:'setup',title:'Initial tableau',narration:setup,
+    concepts:hasArt?['lp-intro','simplex','big-m']:['lp-intro','simplex'],
+    highlights:[{target:'tableau',kind:'reveal'}],payload:pay(tr.initial)});
+  tr.iters.forEach((it,k)=>{
+    const n=k+1;
+    /* (a) entering-variable choice */
+    const candTxt=it.cands.map(c=>`${sub(c.name)} (${fmt(c.val)})`).join(', ');
+    let en=`<p>Iteration ${n} — choose the <b>entering variable</b>. Rule for a ${sense} problem: pick the ${rule} row-0 coefficient; per unit, that variable improves z fastest.</p>`+
+      `<p>Candidate${it.cands.length>1?'s':''}: ${candTxt}.`+
+      (it.cands.some(c=>c.val.includes('M'))?` Coefficients carrying an M term dominate plain numbers — compare the M parts first.`:``)+
+      `</p><p><b>${sub(it.enteringName)} enters</b> (row-0 coefficient ${fmt(it.enteringVal)}).</p>`;
+    steps.push({id:`it${n}-enter`,title:`Iteration ${n} — entering variable`,narration:en,
+      concepts:hasArt?['simplex','big-m']:['simplex'],
+      highlights:colHl(it.entering,'focus'),payload:pay(it.pre)});
+    /* (b) ratio test */
+    const hl=[{target:`col-${it.entering}`,kind:'focus'}];
+    let items='';
+    it.ratios.forEach((s,i)=>{
+      const bn=sub(it.pre.varNames[it.pre.basis[i]]);
+      if(s===null){items+=`<li>R${i+1} (basic ${bn}): column entry ≤ 0 — ineligible, dimmed</li>`;hl.push({target:`row-${i+1}`,kind:'dim'});}
+      else{items+=`<li>R${i+1} (basic ${bn}): ${fmt(s)}${(!it.unbounded&&i===it.leavingRow)?' ◄ minimum':''}</li>`;hl.push({target:`row-${i+1}`,kind:'focus'});}
+    });
+    let ra=`<p><b>Minimum ratio test</b> on the ${sub(it.enteringName)} column: for every row with a positive column entry, compute RHS ÷ entry. The smallest ratio marks the leaving row — its basic variable hits 0 first as ${sub(it.enteringName)} increases.</p><ul>${items}</ul>`;
+    ra+=it.unbounded
+      ?`<p style="color:var(--red)">No row is eligible — ${sub(it.enteringName)} can increase without limit. The LP is <b>unbounded</b>.</p>`
+      :`<p><b>${sub(it.leavingName)} leaves</b> — row R${it.leavingRow+1} wins the ratio test.</p>`;
+    steps.push({id:`it${n}-ratio`,title:`Iteration ${n} — ratio test`,narration:ra,
+      concepts:['ratio-test'],highlights:hl,payload:pay(it.pre)});
+    if(it.unbounded)return;
+    /* (c) pivot */
+    const pr=it.leavingRow;
+    let ops=`<li>R${pr+1} ← R${pr+1} ÷ (${fmt(it.pivotVal)}) — pivot entry becomes 1</li>`;
+    it.colVals.forEach((v,i)=>{if(i===pr)return;ops+= v==='0'?`<li>R${i+1}: entry already 0 — unchanged</li>`:`<li>R${i+1} ← R${i+1} − (${fmt(v)}) · R${pr+1}′</li>`;});
+    ops+=`<li>Row 0 ← Row 0 − (${fmt(it.enteringVal)}) · R${pr+1}′</li>`;
+    const pv=`<p><b>Pivot</b> on the pulsing cell — row R${pr+1}, column ${sub(it.enteringName)}, value ${fmt(it.pivotVal)}. Gauss–Jordan row operations (R${pr+1}′ is the new, scaled pivot row):</p><ul>${ops}</ul>`;
+    steps.push({id:`it${n}-pivot`,title:`Iteration ${n} — pivot`,narration:pv,
+      concepts:['simplex'],
+      highlights:[{target:`cell-${pr+1}-${it.entering}`,kind:'pulse'},{target:`col-${it.entering}`,kind:'focus'}],
+      payload:pay(it.pre)});
+    /* (d) new tableau */
+    const bfs=it.post.basis.map((c,i)=>`${sub(it.post.varNames[c])} = ${fmt(it.post.rhs[i])}`).join(', ');
+    let nt=`<p><b>${sub(it.enteringName)}</b> replaces <b>${sub(it.leavingName)}</b> in the basis. Current basic feasible solution: ${bfs}; every nonbasic variable is 0. Objective value now z = <b>${fmt(it.post.rhs0)}</b>.</p>`;
+    if(hasArt&&kinds[it.pre.basis[pr]]==='artificial')nt+=`<p>The artificial <b>${sub(it.leavingName)}</b> has left the basis. Once an artificial leaves it never needs to re-enter, so its column can be ignored from here on.</p>`;
+    steps.push({id:`it${n}-tableau`,title:`Iteration ${n} — new tableau`,narration:nt,
+      concepts:['simplex'],
+      highlights:[{target:'tableau',kind:'reveal'},{target:`row-${pr+1}`,kind:'focus'}],
+      payload:pay(it.post)});
+  });
+  /* final step */
+  const lastIt=tr.iters[tr.iters.length-1];
+  const last=lastIt?(lastIt.post||lastIt.pre):tr.initial;
+  let fin,fc;
+  if(r.status==='optimal'){
+    const xs=r.x.map((v,j)=>`${sub('x'+(j+1))} = ${fmt(v)}`).join(', ');
+    fin=`<p style="color:var(--green)">Row 0 has no ${sense==='max'?'negative':'positive'} coefficient left, so no entering variable can improve z — this tableau is <b>optimal</b>.</p><p>z = <b>${fmt(r.zStr)}</b> at ${xs}.</p>`;
+    if(hasArt)fin+=`<p>Every artificial variable is nonbasic (value 0): the Big-M penalties have vanished, so this optimum is genuinely feasible for the original LP.</p>`;
+    fc=hasArt?['simplex','big-m']:['simplex'];
+  }else if(r.status==='infeasible'){
+    const ab=tr.artBasic.map(a=>`<b>${sub(a.name)}</b> = ${fmt(a.val)}`).join(', ');
+    fin=`<p style="color:var(--red)">No improving column remains, yet ${ab} — an artificial variable is still basic at a positive value. Any feasible point of the original LP would drive every artificial to 0, so the original LP is <b>infeasible</b>. The reported z = ${fmt(r.zStr)} still carries its M penalty.</p>`;
+    fc=['big-m'];
+  }else if(r.status==='unbounded'){
+    fin=`<p style="color:var(--red)">The ${sub(lastIt.enteringName)} column has no positive entry, so the ratio test has no winner: the LP is <b>unbounded</b> (z → ${sense==='max'?'+∞':'−∞'}).</p>`;
+    fc=['simplex'];
+  }else{
+    fin=`<p style="color:var(--red)">Iteration limit reached (possible cycling).</p>`;fc=['simplex'];
+  }
+  steps.push({id:'final',title:r.status==='optimal'?'Optimal solution':'Termination',narration:fin,
+    concepts:fc,
+    highlights:[{target:'row-0',kind:'focus'},{target:'cell-0-rhs',kind:'pulse'}],payload:pay(last)});
+  return {
+    tool:'lp-lab',
+    problemId:`${entry.src}-${entry.srcIdx}`,
+    title:`${entry.name} — ${entry.src==='bigm'?'Big-M':'simplex'} walkthrough`,
+    concepts:{
+      'lp-intro':{label:'Linear programming intro (MIT OCW 15.053)',url:'https://ocw.mit.edu/courses/15-053-optimization-methods-in-management-science-spring-2013/'},
+      'simplex':{label:'Simplex method',url:'https://en.wikipedia.org/wiki/Simplex_algorithm'},
+      'ratio-test':{label:'Minimum ratio test (LibreTexts)',url:'https://math.libretexts.org/Bookshelves/Applied_Mathematics/Applied_Finite_Mathematics_(Sekhon_and_Bloom)/04%3A_Linear_Programming_The_Simplex_Method/4.02%3A_Maximization_By_The_Simplex_Method'},
+      'big-m':{label:'Big-M method',url:'https://en.wikipedia.org/wiki/Big_M_method'},
+    },
+    steps,
+  };
+}
+/* ---- walkthrough view (DOM from here down) ---- */
+/* 2-var side plot: reuses plotSVG at the corner-point stage and overlays the current
+   BFS vertex. The scale computation mirrors plotSVG's so the marker lands exactly. */
+function walkPlot(prob,ce,r,vtx){
+  const n=prob.cons.length;
+  let svg=plotSVG(prob,ce,r,n+2);
+  if(vtx&&r.status!=='infeasible'){
+    const cand=[];
+    ce.cons.forEach(c=>{if(Math.abs(c.a1)>1e-9)cand.push(Math.abs(c.b/c.a1));if(Math.abs(c.a2)>1e-9)cand.push(Math.abs(c.b/c.a2));});
+    ce.pts.forEach(p=>{cand.push(p.x,p.y);});
+    const m=Math.max(...cand.filter(v=>isFinite(v)&&v>0),1)*1.18;
+    const W=460,H=380,pad=40;
+    const X=pad+(vtx[0]/m)*(W-pad-14),Y=H-pad-(vtx[1]/m)*(H-pad-14);
+    svg=svg.replace('</svg>',`<circle cx="${X}" cy="${Y}" r="7" fill="none" stroke="var(--amber)" stroke-width="2.4"/><circle cx="${X}" cy="${Y}" r="2.5" fill="var(--amber)"/><text x="${X+10}" y="${Y-8}" font-size="11" font-family="var(--mono)" fill="var(--amber)">current BFS</text></svg>`);
+  }
+  return `<div data-fk-target="plot" style="margin-top:10px">${svg}</div><p class="hint" style="margin-top:4px">Amber ring — the (x₁, x₂) of the basic feasible solution at this step.</p>`;
+}
+function renderWalk(){
+  const b=BANKS.walk[bank.walk];
+  const script=buildStepScript(b);
+  const twoVar=b.prob.c.length===2;
+  const ce=twoVar?cornerEnum(b.prob):null,rr=twoVar?solve(b.prob):null;
+  panel.innerHTML=bankbar('walk')+probHead(b)+
+    `<div class="row">
+       <div class="col" style="flex:1 1 460px"><div id="wkCanvas"></div></div>
+       <div class="col" style="flex:1 1 340px;min-width:300px"><div id="wkPlayer"></div></div>
+     </div>
+     <p class="hint">Step with the buttons or <span class="kbd">←</span>/<span class="kbd">→</span>. Same exact-fraction solver as the Simplex and Big-M tabs; problems are drawn from those two banks.</p>`;
+  const canvas=panel.querySelector('#wkCanvas');
+  walkPlayer=FkStepPlayer.mount(panel.querySelector('#wkPlayer'),script,{
+    render(step){
+      let html=walkTableauHTML(step.payload.tab);
+      if(twoVar)html+=walkPlot(b.prob,ce,rr,step.payload.vertex);
+      canvas.innerHTML=html;
+      FkStepPlayer.applyHighlights(canvas,step.highlights);
+    }
+  });
 }
 /* ---- tabs + theme ---- */
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{cur=t.dataset.tab;render();});
