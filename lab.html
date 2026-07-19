@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LP Lab — interactive simplex & Big-M workbench</title>
+<link rel="stylesheet" href="forged.css">
 </head>
-<body>
-<title>LP Lab — interactive simplex & Big-M workbench</title>
+<body class="fk-page">
 <style>
 :root{
   --paper:#f4f2ec; --panel:#fbfaf6; --ink:#1b232c; --ink-soft:#4a5560;
@@ -19,20 +19,20 @@
   --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
 }
 @media (prefers-color-scheme:dark){:root{
-  --paper:#0f1620; --panel:#161f2b; --ink:#e7edf3; --ink-soft:#9fb0c0;
-  --line:#26333f; --grid:rgba(90,160,224,.12);
+  --paper:#030201; --panel:#0d0b0a; --ink:#e0e0e0; --ink-soft:#9ca3af;
+  --line:rgba(255,255,255,.09); --grid:rgba(90,160,224,.12); --accent:#FF8800;
   --blue:#5aa0e0; --green:#58c08a; --green-fill:rgba(88,192,138,.16); --amber:#e5a24a; --red:#e0685a;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
 }}
 :root[data-theme="light"]{
   --paper:#f4f2ec; --panel:#fbfaf6; --ink:#1b232c; --ink-soft:#4a5560;
-  --line:#d8d3c6; --grid:rgba(47,111,176,.10);
+  --line:#d8d3c6; --grid:rgba(47,111,176,.10); --accent:var(--blue);
   --blue:#2f6fb0; --green:#3f9d6d; --green-fill:rgba(63,157,109,.16); --amber:#c9791d; --red:#c0483b;
   --shadow:0 1px 2px rgba(27,35,44,.06),0 8px 24px rgba(27,35,44,.07);
 }
 :root[data-theme="dark"]{
-  --paper:#0f1620; --panel:#161f2b; --ink:#e7edf3; --ink-soft:#9fb0c0;
-  --line:#26333f; --grid:rgba(90,160,224,.12);
+  --paper:#030201; --panel:#0d0b0a; --ink:#e0e0e0; --ink-soft:#9ca3af;
+  --line:rgba(255,255,255,.09); --grid:rgba(90,160,224,.12); --accent:#FF8800;
   --blue:#5aa0e0; --green:#58c08a; --green-fill:rgba(88,192,138,.16); --amber:#e5a24a; --red:#e0685a;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
 }
@@ -101,7 +101,17 @@ svg.plot{width:100%;height:auto;background:var(--paper);border:1px solid var(--l
 .theme-toggle{margin-left:auto;font-size:12px;color:var(--ink-soft);border:1px solid var(--line);background:transparent;border-radius:7px;padding:6px 10px;cursor:pointer}
 hr.sep{border:none;border-top:1px solid var(--line);margin:18px 0}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* forged-kit integration — keep the tableau palette tool-local (BV column stays blue
+   in both themes) and let the page's own theme variables govern the body so the
+   light/dark toggle keeps working under .fk-page. */
+table.tab-t td.bv,table.tab-t th.bv{color:var(--blue)}
+body.fk-page{background-color:var(--paper);color:var(--ink);font-family:var(--sans)}
 </style>
+
+<header class="fk-header">
+  <a class="fk-header-title" href="./">LP Lab</a>
+  <a class="fk-header-link" href="https://www.arath.site/forged/tools">Forged Tools</a>
+</header>
 
 <div class="wrap">
 <header class="masthead">
@@ -123,6 +133,10 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:18px 0}
 <div class="panel" id="panel"></div>
 <p class="hint" style="text-align:center;margin-top:22px">Solver verified against Giapetto · Dakota (z=280) · Bevco (z=25 &amp; infeasible) · Winston Ex 4.6 (z=−12). Same row-0 Big-M logic as the console solvers in the <span class="kbd">solvers</span> folder.</p>
 </div>
+
+<footer class="fk-footer">
+  <a href="https://www.arath.site">A Forged Tool &middot; &copy; Arath Industries</a>
+</footer>
 
 <script>
 /* ===================== VERIFIED SOLVER (exact-fraction row-0 Big-M) ===================== */

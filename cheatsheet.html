@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LP Cheat Sheet (1 side)</title>
+<link rel="stylesheet" href="forged.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
@@ -46,9 +47,15 @@
     th{ background:#ddd; }
     a{ color:#111; }
   }
+  /* forged-kit chrome is screen-only; never printed */
+  @media print{ .fk-header,.fk-footer{ display:none } }
 </style>
 </head>
 <body>
+<header class="fk-header">
+  <a class="fk-header-title" href="./">LP Lab</a>
+  <a class="fk-header-link" href="https://www.arath.site/forged/tools">Forged Tools</a>
+</header>
 <div class="sheet">
 
 <h1>LP Cheat Sheet <small>Formulation · Graphical · Simplex · Big-M — Winston Row-0 form</small></h1>
@@ -180,6 +187,10 @@
 <p class="vd">Row 0 max: \(z-c_1x_1-\dots=0\) · convert \(\le\!+s\), \(\ge\!-e+a\), \(=\!+a\) · Big-M: max \(-Ma\), min \(+Ma\) · divisibility → fractional answers OK.</p>
 
 </div>
+
+<footer class="fk-footer">
+  <a href="https://www.arath.site">A Forged Tool &middot; &copy; Arath Industries</a>
+</footer>
 
 <script>
 document.addEventListener("DOMContentLoaded", function(){

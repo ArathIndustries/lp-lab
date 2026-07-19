@@ -1,0 +1,249 @@
+/* ==========================================================================
+   forged-kit — forged.css
+   Shared brand layer for Arath Industries "Forged Tools" static sites.
+   Upstream source of truth: portfolio-website (arath.site) —
+   src/app/globals.css, src/app/forged/tools/page.tsx,
+   src/components/Header.tsx, src/components/Footer.tsx.
+   Self-contained: no build step, no external requests, no webfont loads.
+   Non-invasive: nothing here restyles bare elements outside .fk-* scope.
+   The site (and this kit) is dark-only.
+   ========================================================================== */
+
+:root {
+  /* --- Color: backgrounds --- */
+  --fk-bg: #030201;                       /* page background (site body) */
+  --fk-surface: #090706;                  /* raised surface / header band */
+  --fk-card-bg: rgba(13, 11, 10, 0.6);    /* card background */
+  --fk-card-bg-tint: rgba(255, 136, 0, 0.02); /* forged-tools card tint */
+
+  /* --- Color: text --- */
+  --fk-text: #e0e0e0;                     /* primary text */
+  --fk-text-dim: #9ca3af;                 /* secondary text (site gray-400) */
+  --fk-text-faint: rgba(255, 255, 255, 0.35); /* de-emphasized nav text */
+
+  /* --- Color: accent (neon orange) --- */
+  --fk-accent: #FF8800;
+  --fk-accent-deep: #994400;
+  --fk-accent-rgb: 255, 136, 0;           /* for rgba() composition */
+  --fk-accent-dim: rgba(255, 136, 0, 0.7);   /* chip text */
+  --fk-accent-faint: rgba(255, 136, 0, 0.35); /* footer / maker's-mark text */
+
+  /* --- Borders --- */
+  --fk-border-neutral: rgba(255, 255, 255, 0.06); /* resting card border */
+  --fk-border-faint: rgba(255, 136, 0, 0.08);     /* header/footer hairlines */
+  --fk-border-soft: rgba(255, 136, 0, 0.12);      /* forged-tools card border */
+  --fk-border-strong: rgba(255, 136, 0, 0.35);    /* hover border */
+
+  /* --- Fills --- */
+  --fk-chip-bg: rgba(255, 136, 0, 0.08);
+  --fk-btn-filled-bg: rgba(255, 136, 0, 0.2);
+  --fk-btn-filled-bg-hover: rgba(255, 136, 0, 0.35);
+  --fk-btn-bg-hover: rgba(255, 136, 0, 0.15);
+
+  /* --- Typography (web-safe fallbacks; kit loads no webfonts) --- */
+  --fk-font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --fk-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
+    Consolas, "Liberation Mono", monospace;
+
+  /* --- Radii --- */
+  --fk-radius-sm: 0.25rem;                /* chips */
+  --fk-radius-btn: 0.375rem;              /* buttons */
+  --fk-radius-card: 0.5rem;               /* cards */
+
+  /* --- Glow shadows --- */
+  --fk-glow-btn: 0 0 5px rgba(255, 136, 0, 0.2),
+    inset 0 0 5px rgba(255, 136, 0, 0.05);
+  --fk-glow-btn-hover: 0 0 10px rgba(255, 136, 0, 0.4),
+    0 0 30px rgba(255, 136, 0, 0.15), inset 0 0 10px rgba(255, 136, 0, 0.1);
+  --fk-glow-btn-filled: 0 0 8px rgba(255, 136, 0, 0.3),
+    inset 0 0 8px rgba(255, 136, 0, 0.1);
+  --fk-glow-btn-filled-hover: 0 0 15px rgba(255, 136, 0, 0.5),
+    0 0 40px rgba(255, 136, 0, 0.2), inset 0 0 15px rgba(255, 136, 0, 0.15);
+  --fk-glow-card-hover: 0 0 15px rgba(255, 136, 0, 0.06),
+    inset 0 0 30px rgba(255, 136, 0, 0.02);
+  --fk-glow-divider: 0 0 8px rgba(255, 136, 0, 0.15),
+    0 0 20px rgba(255, 136, 0, 0.05);
+  --fk-glow-text: 0 0 7px rgba(255, 136, 0, 0.6),
+    0 0 20px rgba(255, 136, 0, 0.3), 0 0 40px rgba(255, 136, 0, 0.15);
+
+  /* --- Spacing rhythm --- */
+  --fk-container-max: 64rem;              /* site max-w-3xl..5xl range */
+  --fk-pad-x: 1rem;                       /* container side padding */
+  --fk-card-pad: 1.5rem;                  /* card padding (site p-6) */
+  --fk-gap: 1.5rem;                       /* card-to-card gap (space-y-6) */
+}
+
+/* --------------------------------------------------------------------------
+   .fk-page — base canvas. Apply to <body> (or a wrapper). Sets background,
+   text color, and the sans stack. Does not touch child element defaults.
+   -------------------------------------------------------------------------- */
+.fk-page {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--fk-bg);
+  color: var(--fk-text);
+  font-family: var(--fk-font-sans);
+}
+
+/* --------------------------------------------------------------------------
+   .fk-header — slim top band. Markup:
+   <header class="fk-header">
+     <span class="fk-header-title">Tool Name</span>
+     <a class="fk-header-link" href="https://www.arath.site/forged/tools">Forged Tools</a>
+   </header>
+   -------------------------------------------------------------------------- */
+.fk-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  height: 3rem;
+  padding: 0 var(--fk-pad-x);
+  background: rgba(9, 7, 6, 0.8);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-bottom: 1px solid var(--fk-border-faint);
+  font-family: var(--fk-font-mono);
+}
+
+.fk-header-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--fk-accent);
+  text-shadow: var(--fk-glow-text);
+  text-decoration: none;
+}
+
+.fk-header-link {
+  font-size: 0.8125rem;
+  color: var(--fk-text-faint);
+  text-decoration: none;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.fk-header-link:hover {
+  color: var(--fk-accent);
+  text-shadow: 0 0 8px rgba(var(--fk-accent-rgb), 0.3);
+}
+
+/* --------------------------------------------------------------------------
+   .fk-card — content panel with neon hover border.
+   -------------------------------------------------------------------------- */
+.fk-card {
+  padding: var(--fk-card-pad);
+  background: var(--fk-card-bg);
+  border: 1px solid var(--fk-border-soft);
+  border-radius: var(--fk-radius-card);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.fk-card:hover {
+  border-color: var(--fk-border-strong);
+  box-shadow: var(--fk-glow-card-hover);
+}
+
+/* --------------------------------------------------------------------------
+   .fk-chip — small mono tag. .fk-chip-preview — status variant
+   ("early preview"); same palette as tags on /forged/tools, plus a
+   hairline accent border to read as a status rather than a tag.
+   -------------------------------------------------------------------------- */
+.fk-chip {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  font-family: var(--fk-font-mono);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  border-radius: var(--fk-radius-sm);
+  background: var(--fk-chip-bg);
+  color: var(--fk-accent-dim);
+}
+
+.fk-chip-preview {
+  border: 1px solid var(--fk-border-soft);
+}
+
+/* --------------------------------------------------------------------------
+   .fk-btn / .fk-btn-filled — the site's neon-btn / neon-btn-filled.
+   Work on <a> and <button>.
+   -------------------------------------------------------------------------- */
+.fk-btn,
+.fk-btn-filled {
+  display: inline-block;
+  padding: 0.5rem 1.5rem;
+  font-family: var(--fk-font-mono);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: var(--fk-radius-btn);
+  transition: all 0.2s ease;
+}
+
+.fk-btn {
+  border: 1px solid var(--fk-accent);
+  color: var(--fk-accent);
+  background: transparent;
+  box-shadow: var(--fk-glow-btn);
+}
+
+.fk-btn:hover {
+  background: var(--fk-btn-bg-hover);
+  box-shadow: var(--fk-glow-btn-hover);
+}
+
+.fk-btn-filled {
+  border: 1px solid var(--fk-accent);
+  color: #fff;
+  background: var(--fk-btn-filled-bg);
+  box-shadow: var(--fk-glow-btn-filled);
+}
+
+.fk-btn-filled:hover {
+  background: var(--fk-btn-filled-bg-hover);
+  box-shadow: var(--fk-glow-btn-filled-hover);
+}
+
+/* --------------------------------------------------------------------------
+   .fk-footer — maker's mark. Markup:
+   <footer class="fk-footer">
+     <a href="https://www.arath.site">A Forged Tool &middot; &copy; Arath Industries</a>
+   </footer>
+   Gradient hairline + glow reproduces the site footer divider.
+   -------------------------------------------------------------------------- */
+.fk-footer {
+  margin-top: auto;
+  padding: 1.25rem var(--fk-pad-x);
+  text-align: center;
+  font-family: var(--fk-font-mono);
+  font-size: 0.8125rem;
+  position: relative;
+}
+
+.fk-footer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent,
+    rgba(255, 136, 0, 0.3) 30%, rgba(255, 136, 0, 0.3) 70%, transparent);
+  box-shadow: var(--fk-glow-divider);
+}
+
+.fk-footer a {
+  color: var(--fk-accent-faint);
+  text-decoration: none;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.fk-footer a:hover {
+  color: var(--fk-accent);
+  text-shadow: 0 0 8px rgba(var(--fk-accent-rgb), 0.3);
+}

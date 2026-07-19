@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LP — Algorithmic Cheat Sheet (1 side)</title>
+<link rel="stylesheet" href="forged.css">
 <style>
   @page{ size:letter; margin:0.3in; }
   html,body{ margin:0; padding:0; background:#fff; color:#111; }
@@ -51,9 +52,15 @@
     h2{ color:#fff; }
     .map{ background:#eee; }
   }
+  /* forged-kit chrome is screen-only; never printed */
+  @media print{ .fk-header,.fk-footer{ display:none } }
 </style>
 </head>
 <body>
+<header class="fk-header">
+  <a class="fk-header-title" href="./">LP Lab</a>
+  <a class="fk-header-link" href="https://www.arath.site/forged/tools">Forged Tools</a>
+</header>
 <div class="sheet">
 
 <h1>LP, as one procedure
@@ -216,5 +223,9 @@ gⱼ = a Row-0 coeff that carries an M-term (form pM−q) · cM = an M-multiple 
 <div class="warn"><b>Diagnostics at a glance:</b> UNBOUNDED = entering column has no positive entry · INFEASIBLE = an artificial stays basic at &gt; 0 · ALTERNATIVE OPTIMA = a nonbasic Row-0 coeff = 0 at the optimum · DEGENERATE = a basic variable = 0 (ratio-test tie).</div>
 
 </div>
+
+<footer class="fk-footer">
+  <a href="https://www.arath.site">A Forged Tool &middot; &copy; Arath Industries</a>
+</footer>
 </body>
 </html>
